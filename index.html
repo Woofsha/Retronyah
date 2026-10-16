@@ -1,0 +1,3360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Project Ys-Engine: Aldenor Town (PC-Engine CD)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background-color: #08080f;
+      color: #e0e0f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    #cabinetContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100vw;
+      height: 100dvh;
+      max-height: 100dvh;
+      max-width: 1200px;
+      padding: 6px 10px env(safe-area-inset-bottom, 8px);
+      position: relative;
+    }
+    header#topBar {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: linear-gradient(180deg, #1c1c2e 0%, #10101c 100%);
+      border: 2px solid #363654;
+      border-radius: 6px 6px 0 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #f7d24a;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    }
+    .brand-badge {
+      background: #c82828;
+      color: #fff;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .hud-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hud-btn {
+      background: #202036;
+      color: #d8d8ee;
+      border: 1px solid #48486c;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .hud-btn:hover {
+      background: #323254;
+      border-color: #f7d24a;
+      color: #fff;
+    }
+    .hud-btn.active {
+      background: #2b3858;
+      border-color: #6da2f8;
+      color: #a4c8ff;
+    }
+    /* HuC6280 VU Meter visualizer */
+    .vu-meter-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #0d0d17;
+      padding: 3px 6px;
+      border: 1px solid #2e2e46;
+      border-radius: 4px;
+    }
+    .vu-label {
+      font-size: 8px;
+      color: #8888aa;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .vu-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 14px;
+      width: 48px;
+    }
+    .vu-bar {
+      flex: 1;
+      height: 100%;
+      background: #141424;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 1px;
+      overflow: hidden;
+      border-radius: 1px;
+    }
+    .vu-segment {
+      height: 2px;
+      width: 100%;
+      background: #222238;
+      transition: background-color 0.05s ease;
+    }
+    .vu-segment.lit-green { background: #2cd24a; box-shadow: 0 0 2px #2cd24a; }
+    .vu-segment.lit-yellow { background: #f2c828; box-shadow: 0 0 2px #f2c828; }
+    .vu-segment.lit-red { background: #f23838; box-shadow: 0 0 2px #f23838; }
+
+    /* Screen Frame & CRT */
+    #screenWrapper {
+      position: relative;
+      width: 100%;
+      max-width: 860px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #020205;
+      border: 2px solid #363654;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.9), 0 8px 24px rgba(0,0,0,0.8);
+      overflow: hidden;
+    }
+    #viewport {
+      position: relative;
+      aspect-ratio: 256 / 224;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: pixelated;
+      display: block;
+      background: #000;
+    }
+    #crtOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 5;
+    }
+    #crtOverlay.crt-active {
+      opacity: 1;
+      background: 
+        repeating-linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0) 0px,
+          rgba(0, 0, 0, 0) 1px,
+          rgba(0, 0, 0, 0.32) 2px,
+          rgba(0, 0, 0, 0.32) 3px
+        ),
+        repeating-linear-gradient(
+          to right,
+          rgba(255, 0, 0, 0.04) 0px,
+          rgba(0, 255, 0, 0.04) 1px,
+          rgba(0, 0, 255, 0.04) 2px,
+          rgba(0, 0, 0, 0.08) 3px
+        ),
+        radial-gradient(
+          ellipse at center,
+          rgba(0,0,0,0) 65%,
+          rgba(0,0,0,0.45) 100%
+        );
+      box-shadow: inset 0 0 16px rgba(0,0,0,0.7);
+    }
+
+    /* Bottom Control Bar */
+    footer#bottomBar {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      margin-top: 6px;
+      background: #10101b;
+      border: 1px solid #28283c;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #9090b4;
+    }
+    .ctrl-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .key-badge {
+      background: #24243a;
+      border: 1px solid #404060;
+      border-bottom: 2px solid #1a1a2e;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-family: monospace;
+      color: #f7d24a;
+      font-weight: 700;
+    }
+
+    /* Mobile Virtual Controls: Docked below screenWrapper on touch devices only */
+    #mobileControls {
+      display: none;
+    }
+    @media (hover: none) and (pointer: coarse) {
+      footer#bottomBar {
+        display: none !important;
+      }
+      #mobileControls {
+        position: relative;
+        height: 116px;
+        flex-shrink: 0;
+        padding: 6px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #10101c;
+        border: 2px solid #363654;
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        width: 100%;
+        max-width: 860px;
+        pointer-events: auto;
+        z-index: 20;
+      }
+    }
+    .vpad {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      pointer-events: auto;
+    }
+    .vpad-btn {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      background: rgba(30, 30, 50, 0.85);
+      border: 1px solid #585888;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: #fff;
+      touch-action: none;
+    }
+    .vpad-btn:active { background: rgba(70, 70, 110, 0.95); }
+    .vpad-up { top: 0; left: 33px; }
+    .vpad-down { bottom: 0; left: 33px; }
+    .vpad-left { top: 33px; left: 0; }
+    .vpad-right { top: 33px; right: 0; }
+    .vact-group {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+    .vact-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(180, 40, 40, 0.85);
+      border: 2px solid #f88;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      touch-action: none;
+    }
+    .vact-btn:active { background: rgba(230, 60, 60, 0.95); }
+  </style>
+</head>
+<body>
+
+<div id="cabinetContainer">
+  <header id="topBar">
+    <div class="brand-title">
+      <span class="brand-badge">PCE-CD</span>
+      <span>ALDENOR TOWN</span>
+    </div>
+    <div class="hud-buttons">
+      <button id="btnDayNight" class="hud-btn" title="Toggle Day/Twilight (T)">
+        <span>[T]</span> <span id="lblDayNight">Midday</span>
+      </button>
+      <button id="btnCrt" class="hud-btn" title="Toggle High-DPI CRT Filter (C)">
+        <span>[C]</span> <span>CRT</span>
+      </button>
+      <button id="btnMute" class="hud-btn" title="Toggle HuC6280 Audio (M)">
+        <span>[M]</span> <span id="lblMute">BGM ON</span>
+      </button>
+    </div>
+    <div class="vu-meter-box" title="HuC6280 6-Channel + Ambient VU Meter">
+      <span class="vu-label">PSG</span>
+      <div class="vu-bars" id="vuBars">
+        <div class="vu-bar" id="vuBar0"></div>
+        <div class="vu-bar" id="vuBar1"></div>
+        <div class="vu-bar" id="vuBar2"></div>
+        <div class="vu-bar" id="vuBar3"></div>
+        <div class="vu-bar" id="vuBar4"></div>
+        <div class="vu-bar" id="vuBar5"></div>
+        <div class="vu-bar" id="vuBar6"></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="screenWrapper">
+    <div id="viewport">
+      <canvas id="gameCanvas" width="256" height="224"></canvas>
+      <div id="crtOverlay" class="crt-active"></div>
+    </div>
+  </div>
+
+  <footer id="bottomBar">
+    <div class="ctrl-item"><span class="key-badge">WASD / ARROWS</span> Move</div>
+    <div class="ctrl-item"><span class="key-badge">SPACE / E</span> Talk & Advance</div>
+    <div class="ctrl-item"><span class="key-badge">T</span> Day/Twilight</div>
+    <div class="ctrl-item"><span class="key-badge">C</span> CRT Filter</div>
+    <div class="ctrl-item"><span class="key-badge">M</span> Audio Mute</div>
+  </footer>
+
+  <div id="mobileControls">
+    <div class="vpad">
+      <div class="vpad-btn vpad-up" data-key="ArrowUp">▲</div>
+      <div class="vpad-btn vpad-down" data-key="ArrowDown">▼</div>
+      <div class="vpad-btn vpad-left" data-key="ArrowLeft">◀</div>
+      <div class="vpad-btn vpad-right" data-key="ArrowRight">▶</div>
+    </div>
+    <div class="vact-group">
+      <div class="vact-btn" data-key="Space">(I)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Section 1.1: Responsive Viewport Scaler
+  function resizeViewport() {
+    const wrapper = document.getElementById('screenWrapper');
+    const viewport = document.getElementById('viewport');
+    if (!wrapper || !viewport) return;
+    const availW = wrapper.clientWidth - 8;
+    const availH = wrapper.clientHeight - 8;
+    const exactScale = Math.min(availW / 256, availH / 224);
+    const intScale = Math.floor(exactScale);
+    const scale = (intScale >= 1 && (intScale / exactScale) >= 0.72) ? intScale : Math.max(0.5, exactScale);
+    viewport.style.width = `${Math.floor(256 * scale)}px`;
+    viewport.style.height = `${Math.floor(224 * scale)}px`;
+  }
+  window.addEventListener('resize', resizeViewport);
+  window.addEventListener('DOMContentLoaded', resizeViewport);
+
+  // =========================================================================
+  // SECTION 1: HuC6260 Video Color Encoder (VCE) 9-Bit Palette System
+  // =========================================================================
+  const VCE_STEPS = [0, 36, 73, 109, 146, 182, 219, 255];
+
+  function vceColor(r3, g3, b3) {
+    return `rgb(${VCE_STEPS[r3 & 7]}, ${VCE_STEPS[g3 & 7]}, ${VCE_STEPS[b3 & 7]})`;
+  }
+
+  function vceRgb(r3, g3, b3) {
+    return [VCE_STEPS[r3 & 7], VCE_STEPS[g3 & 7], VCE_STEPS[b3 & 7]];
+  }
+
+  function vceRgba(r3, g3, b3, a = 255) {
+    return [VCE_STEPS[r3 & 7], VCE_STEPS[g3 & 7], VCE_STEPS[b3 & 7], a];
+  }
+
+  const OUTLINE_COLOR = vceColor(1, 1, 2); // Authentic 9-bit slate outline #242449
+  const OUTLINE_RGBA = vceRgba(1, 1, 2);
+
+  // =========================================================================
+  // SECTION 2: HuC6280 6-Channel Web Audio Synthesizer & Discrete Fourier Transform
+  // =========================================================================
+  let audioCtx = null;
+  let isAudioUnlocked = false;
+  let isMuted = false;
+
+  function initAudio() {
+    if (audioCtx) return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioCtx = new AudioContextClass();
+    buildWavetables();
+    buildSequencer();
+    initSpatialFountain();
+  }
+
+  function unlockAudio() {
+    if (!audioCtx) initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    isAudioUnlocked = true;
+  }
+
+  ['keydown', 'pointerdown', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, unlockAudio, { once: false });
+  });
+
+  // DFT Wavetable Conversion
+  function createHuC6280Wave(ctx, samples32) {
+    const N = 32;
+    const real = new Float32Array(N);
+    const imag = new Float32Array(N);
+    const norm = samples32.map(v => (v - 15.5) / 15.5);
+    for (let k = 1; k < N / 2; k++) {
+      let re = 0, im = 0;
+      for (let n = 0; n < N; n++) {
+        const angle = (2 * Math.PI * k * n) / N;
+        re += norm[n] * Math.cos(angle);
+        im -= norm[n] * Math.sin(angle);
+      }
+      real[k] = (2 * re) / N;
+      imag[k] = (2 * im) / N;
+    }
+    return ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  }
+
+  const SAMPLES_LEAD = [0, 2, 4, 7, 11, 16, 22, 28, 31, 31, 30, 27, 23, 18, 14, 10, 8, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const SAMPLES_HOLLOW = [16, 21, 26, 29, 31, 30, 27, 22, 16, 9, 4, 1, 0, 1, 4, 9, 16, 22, 27, 30, 31, 29, 25, 19, 13, 8, 4, 1, 0, 2, 6, 11];
+  const SAMPLES_BASS = [31, 31, 30, 28, 25, 21, 16, 10, 5, 1, 0, 0, 2, 6, 12, 18, 23, 26, 27, 26, 24, 20, 15, 10, 6, 3, 1, 0, 0, 3, 10, 20];
+  const SAMPLES_ARP = [0, 0, 0, 0, 0, 0, 0, 0, 31, 31, 31, 31, 31, 31, 31, 31, 27, 23, 19, 15, 11, 7, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+  let waveLead, waveHollow, waveBass, waveArp;
+  let masterGain;
+  const vuMeters = [0, 0, 0, 0, 0, 0, 0];
+
+  function buildWavetables() {
+    masterGain = audioCtx.createGain();
+    masterGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    masterGain.connect(audioCtx.destination);
+
+    waveLead = createHuC6280Wave(audioCtx, SAMPLES_LEAD);
+    waveHollow = createHuC6280Wave(audioCtx, SAMPLES_HOLLOW);
+    waveBass = createHuC6280Wave(audioCtx, SAMPLES_BASS);
+    waveArp = createHuC6280Wave(audioCtx, SAMPLES_ARP);
+  }
+
+  let noiseBuffer = null;
+  function getNoiseBuffer() {
+    if (!noiseBuffer && audioCtx) {
+      const bufferSize = audioCtx.sampleRate * 2;
+      noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        output[i] = (b0 + b1 + b2 + white * 0.5362) * 0.16;
+      }
+    }
+    return noiseBuffer;
+  }
+
+  let fountainSource = null;
+  let fountainGain = null;
+  function initSpatialFountain() {
+    if (!audioCtx) return;
+    const buf = getNoiseBuffer();
+    fountainSource = audioCtx.createBufferSource();
+    fountainSource.buffer = buf;
+    fountainSource.loop = true;
+
+    const bq = audioCtx.createBiquadFilter();
+    bq.type = 'bandpass';
+    bq.frequency.setValueAtTime(850, audioCtx.currentTime);
+    bq.Q.setValueAtTime(2.2, audioCtx.currentTime);
+
+    fountainGain = audioCtx.createGain();
+    fountainGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+    fountainSource.connect(bq);
+    bq.connect(fountainGain);
+    fountainGain.connect(masterGain);
+    fountainSource.start();
+  }
+
+  function updateSpatialFountain(heroX, heroY) {
+    if (!fountainGain || !audioCtx) return;
+    const FOUNTAIN_PX_X = 248, FOUNTAIN_PX_Y = 208;
+    const dist = Math.hypot(heroX - FOUNTAIN_PX_X, heroY - FOUNTAIN_PX_Y);
+    const maxDist = 200;
+    const targetVol = isMuted ? 0 : Math.max(0, 1 - dist / maxDist) * 0.22;
+    fountainGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
+    vuMeters[6] = Math.max(vuMeters[6] * 0.88, targetVol / 0.22);
+  }
+
+  function playSfxBlip(freq, duration = 0.038) {
+    if (!audioCtx || isMuted) return;
+    const osc = audioCtx.createOscillator();
+    osc.setPeriodicWave(waveLead || waveArp);
+    osc.frequency.setValueAtTime(freq + (Math.random() * 40 - 20), audioCtx.currentTime);
+
+    const gain = audioCtx.createGain();
+    const t = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(t);
+    osc.stop(t + duration);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    vuMeters[5] = 1.0;
+  }
+
+  function playUiConfirm() {
+    if (!audioCtx || isMuted) return;
+    const t = audioCtx.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      osc.setPeriodicWave(waveArp);
+      osc.frequency.setValueAtTime(freq, t + idx * 0.05);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.14, t + idx * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.05 + 0.12);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(t + idx * 0.05);
+      osc.stop(t + idx * 0.05 + 0.12);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    });
+    vuMeters[5] = 1.0;
+  }
+
+  // Authentic Falcom-Style Peaceful Town BGM (Ys / Popful Mail) - 98 BPM
+  const NOTE = {
+    C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+    C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+    C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77,
+    C6: 1046.50, D6: 1174.66, E6: 1318.51
+  };
+
+  const scoreCh1 = new Array(256).fill(0);
+  const scoreCh2 = new Array(256).fill(0);
+  const scoreCh3 = new Array(256).fill(0);
+  const scoreCh4 = new Array(256).fill(0);
+  const scoreCh5 = new Array(256).fill(0);
+
+  function buildBgmScore() {
+    const melody = [
+      NOTE.E5, 0, 0, 0, NOTE.G5, 0, NOTE.A5, 0, NOTE.G5, 0, 0, 0, NOTE.E5, 0, 0, 0,
+      NOTE.F5, 0, 0, 0, NOTE.A5, 0, NOTE.C6, 0, NOTE.B5, 0, NOTE.A5, 0, NOTE.G5, 0, 0, 0,
+      NOTE.E5, 0, 0, 0, NOTE.G5, 0, NOTE.E5, 0, NOTE.D5, 0, 0, 0, NOTE.C5, 0, 0, 0,
+      NOTE.D5, 0, 0, 0, NOTE.E5, 0, NOTE.F5, 0, NOTE.D5, 0, 0, 0, NOTE.B4, 0, 0, 0,
+      NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.G5, 0, NOTE.C6, 0, 0, 0, NOTE.D6, 0, 0, 0,
+      NOTE.E6, 0, 0, 0, NOTE.D6, 0, NOTE.C6, 0, NOTE.A5, 0, 0, 0, NOTE.C6, 0, 0, 0,
+      NOTE.G5, 0, 0, 0, NOTE.A5, 0, NOTE.G5, 0, NOTE.E5, 0, 0, 0, NOTE.D5, 0, 0, 0,
+      NOTE.C5, 0, 0, 0, 0, 0, 0, 0, NOTE.C5, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const harm = [
+      NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0, NOTE.C5, 0, 0, 0,
+      NOTE.C5, 0, 0, 0, NOTE.F5, 0, NOTE.A5, 0, NOTE.G5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0,
+      NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.C5, 0, NOTE.B4, 0, 0, 0, NOTE.A4, 0, 0, 0,
+      NOTE.B4, 0, 0, 0, NOTE.C5, 0, NOTE.D5, 0, NOTE.B4, 0, 0, 0, NOTE.G4, 0, 0, 0,
+      NOTE.G4, 0, 0, 0, NOTE.C5, 0, NOTE.E5, 0, NOTE.G5, 0, 0, 0, NOTE.B5, 0, 0, 0,
+      NOTE.C6, 0, 0, 0, NOTE.B5, 0, NOTE.A5, 0, NOTE.F5, 0, 0, 0, NOTE.A5, 0, 0, 0,
+      NOTE.E5, 0, 0, 0, NOTE.F5, 0, NOTE.E5, 0, NOTE.C5, 0, 0, 0, NOTE.B4, 0, 0, 0,
+      NOTE.G4, 0, 0, 0, 0, 0, 0, 0, NOTE.E4, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const bassline = [
+      NOTE.C3, 0, 0, 0, NOTE.G3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.G3, 0, 0, 0,
+      NOTE.F3, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.A3, 0, 0, 0, NOTE.C4, 0, 0, 0,
+      NOTE.A3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.E3, 0, 0, 0,
+      NOTE.G3, 0, 0, 0, NOTE.D3, 0, 0, 0, NOTE.B3, 0, 0, 0, NOTE.D4, 0, 0, 0,
+      NOTE.C3, 0, 0, 0, NOTE.G3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.G3, 0, 0, 0,
+      NOTE.F3, 0, 0, 0, NOTE.A3, 0, 0, 0, NOTE.C4, 0, 0, 0, NOTE.A3, 0, 0, 0,
+      NOTE.G3, 0, 0, 0, NOTE.D3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.G3, 0, 0, 0,
+      NOTE.C3, 0, 0, 0, NOTE.G3, 0, 0, 0, NOTE.C3, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const arp = [
+      0, 0, NOTE.E4, 0, NOTE.G4, 0, NOTE.C5, 0, 0, 0, NOTE.G4, 0, NOTE.E4, 0, 0, 0,
+      0, 0, NOTE.F4, 0, NOTE.A4, 0, NOTE.C5, 0, 0, 0, NOTE.A4, 0, NOTE.F4, 0, 0, 0,
+      0, 0, NOTE.E4, 0, NOTE.A4, 0, NOTE.C5, 0, 0, 0, NOTE.A4, 0, NOTE.E4, 0, 0, 0,
+      0, 0, NOTE.D4, 0, NOTE.G4, 0, NOTE.B4, 0, 0, 0, NOTE.G4, 0, NOTE.D4, 0, 0, 0,
+      0, 0, NOTE.E4, 0, NOTE.G4, 0, NOTE.C5, 0, 0, 0, NOTE.G4, 0, NOTE.E4, 0, 0, 0,
+      0, 0, NOTE.F4, 0, NOTE.A4, 0, NOTE.C5, 0, 0, 0, NOTE.C5, 0, NOTE.A4, 0, 0, 0,
+      0, 0, NOTE.E4, 0, NOTE.G4, 0, NOTE.B4, 0, 0, 0, NOTE.G4, 0, NOTE.D4, 0, 0, 0,
+      0, 0, NOTE.E4, 0, NOTE.G4, 0, NOTE.C5, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    for (let i = 0; i < 256; i++) {
+      scoreCh1[i] = melody[i % 128];
+      scoreCh2[i] = harm[i % 128];
+      scoreCh3[i] = bassline[i % 128];
+      scoreCh4[i] = arp[i % 128];
+
+      const s = i % 16;
+      if (s === 0) scoreCh5[i] = 1; // Gentle kick on 1
+      else if (s === 8) scoreCh5[i] = 2; // Soft snare on 3
+      else if (s === 4 || s === 12) scoreCh5[i] = 3; // Light hi-hat on 2 & 4
+    }
+  }
+
+  const BPM = 98;
+  const STEP_DUR = (60 / BPM) / 4;
+  let currentStep = 0;
+  let nextStepTime = 0;
+  let sequencerTimer = null;
+
+  function playKick(time) {
+    if (!audioCtx || isMuted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.setValueAtTime(130, time);
+    osc.frequency.exponentialRampToValueAtTime(38, time + 0.08);
+    gain.gain.setValueAtTime(0.24, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.09);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    vuMeters[4] = Math.max(vuMeters[4], 0.9);
+  }
+
+  function playSnare(time) {
+    if (!audioCtx || isMuted) return;
+    const buf = getNoiseBuffer();
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(1000, time);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.2, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    src.start(time);
+    src.stop(time + 0.11);
+    src.onended = () => { src.disconnect(); filter.disconnect(); gain.disconnect(); };
+    vuMeters[4] = Math.max(vuMeters[4], 0.8);
+  }
+
+  function playHihat(time) {
+    if (!audioCtx || isMuted) return;
+    const buf = getNoiseBuffer();
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(4500, time);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.08, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    src.start(time);
+    src.stop(time + 0.035);
+    src.onended = () => { src.disconnect(); filter.disconnect(); gain.disconnect(); };
+    vuMeters[4] = Math.max(vuMeters[4], 0.4);
+  }
+
+  function scheduleNote(wave, freq, time, duration, volume, meterIdx) {
+    if (!freq || !audioCtx || isMuted) return;
+    const osc = audioCtx.createOscillator();
+    osc.setPeriodicWave(wave);
+    osc.frequency.setValueAtTime(freq, time);
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(volume, time + 0.006);
+    gain.gain.setValueAtTime(volume * 0.8, time + duration * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(time);
+    osc.stop(time + duration);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    vuMeters[meterIdx] = Math.max(vuMeters[meterIdx], volume / 0.16);
+  }
+
+  function buildSequencer() {
+    buildBgmScore();
+    nextStepTime = audioCtx.currentTime + 0.05;
+    sequencerTimer = setInterval(() => {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      if (nextStepTime < audioCtx.currentTime) {
+        nextStepTime = audioCtx.currentTime + 0.05;
+      }
+      while (nextStepTime < audioCtx.currentTime + 0.12) {
+        const step = currentStep;
+        const t = nextStepTime;
+
+        const f1 = scoreCh1[step];
+        if (f1) scheduleNote(waveLead, f1, t, STEP_DUR * 3.2, 0.13, 0);
+
+        const f2 = scoreCh2[step];
+        if (f2) scheduleNote(waveHollow, f2, t, STEP_DUR * 3.0, 0.08, 1);
+
+        const f3 = scoreCh3[step];
+        if (f3) scheduleNote(waveBass, f3, t, STEP_DUR * 2.8, 0.15, 2);
+
+        const f4 = scoreCh4[step];
+        if (f4) scheduleNote(waveArp, f4, t, STEP_DUR * 1.8, 0.06, 3);
+
+        const p = scoreCh5[step];
+        if (p === 1) playKick(t);
+        else if (p === 2) playSnare(t);
+        else if (p === 3) playHihat(t);
+
+        currentStep = (currentStep + 1) % 256;
+        nextStepTime += STEP_DUR;
+      }
+    }, 25);
+  }
+
+  // =========================================================================
+  // SECTION 3: 5x7 Retro Bitmap Font Engine
+  // =========================================================================
+  const FONT_GLYPHS = {
+    'A': [0x0e,0x11,0x11,0x1f,0x11,0x11,0x11], 'B': [0x1e,0x11,0x11,0x1e,0x11,0x11,0x1e],
+    'C': [0x0e,0x11,0x10,0x10,0x10,0x11,0x0e], 'D': [0x1c,0x12,0x11,0x11,0x11,0x12,0x1c],
+    'E': [0x1f,0x10,0x10,0x1e,0x10,0x10,0x1f], 'F': [0x1f,0x10,0x10,0x1e,0x10,0x10,0x10],
+    'G': [0x0e,0x11,0x10,0x17,0x11,0x11,0x0f], 'H': [0x11,0x11,0x11,0x1f,0x11,0x11,0x11],
+    'I': [0x0e,0x04,0x04,0x04,0x04,0x04,0x0e], 'J': [0x07,0x02,0x02,0x02,0x02,0x12,0x0c],
+    'K': [0x11,0x12,0x14,0x18,0x14,0x12,0x11], 'L': [0x10,0x10,0x10,0x10,0x10,0x10,0x1f],
+    'M': [0x11,0x1b,0x15,0x15,0x11,0x11,0x11], 'N': [0x11,0x19,0x15,0x13,0x11,0x11,0x11],
+    'O': [0x0e,0x11,0x11,0x11,0x11,0x11,0x0e], 'P': [0x1e,0x11,0x11,0x1e,0x10,0x10,0x10],
+    'Q': [0x0e,0x11,0x11,0x11,0x15,0x12,0x0d], 'R': [0x1e,0x11,0x11,0x1e,0x14,0x12,0x11],
+    'S': [0x0f,0x10,0x10,0x0e,0x01,0x01,0x1e], 'T': [0x1f,0x04,0x04,0x04,0x04,0x04,0x04],
+    'U': [0x11,0x11,0x11,0x11,0x11,0x11,0x0e], 'V': [0x11,0x11,0x11,0x11,0x11,0x0a,0x04],
+    'W': [0x11,0x11,0x11,0x15,0x15,0x15,0x0a], 'X': [0x11,0x11,0x0a,0x04,0x0a,0x11,0x11],
+    'Y': [0x11,0x11,0x0a,0x04,0x04,0x04,0x04], 'Z': [0x1f,0x01,0x02,0x04,0x08,0x10,0x1f],
+    'a': [0x00,0x00,0x0e,0x01,0x0f,0x11,0x0f], 'b': [0x10,0x10,0x1e,0x11,0x11,0x11,0x1e],
+    'c': [0x00,0x00,0x0e,0x11,0x10,0x11,0x0e], 'd': [0x01,0x01,0x0f,0x11,0x11,0x11,0x0f],
+    'e': [0x00,0x00,0x0e,0x11,0x1f,0x10,0x0e], 'f': [0x06,0x09,0x08,0x1c,0x08,0x08,0x08],
+    'g': [0x00,0x00,0x0f,0x11,0x0f,0x01,0x0e], 'h': [0x10,0x10,0x16,0x19,0x11,0x11,0x11],
+    'i': [0x04,0x00,0x0c,0x04,0x04,0x04,0x0e], 'j': [0x02,0x00,0x06,0x02,0x02,0x12,0x0c],
+    'k': [0x10,0x10,0x12,0x14,0x18,0x14,0x12], 'l': [0x0c,0x04,0x04,0x04,0x04,0x04,0x0e],
+    'm': [0x00,0x00,0x1a,0x15,0x15,0x11,0x11], 'n': [0x00,0x00,0x16,0x19,0x11,0x11,0x11],
+    'o': [0x00,0x00,0x0e,0x11,0x11,0x11,0x0e], 'p': [0x00,0x00,0x1e,0x11,0x1e,0x10,0x10],
+    'q': [0x00,0x00,0x0f,0x11,0x0f,0x01,0x01], 'r': [0x00,0x00,0x16,0x19,0x10,0x10,0x10],
+    's': [0x00,0x00,0x0f,0x10,0x0e,0x01,0x1e], 't': [0x08,0x08,0x1c,0x08,0x08,0x09,0x06],
+    'u': [0x00,0x00,0x11,0x11,0x11,0x13,0x0d], 'v': [0x00,0x00,0x11,0x11,0x11,0x0a,0x04],
+    'w': [0x00,0x00,0x11,0x15,0x15,0x15,0x0a], 'x': [0x00,0x00,0x11,0x0a,0x04,0x0a,0x11],
+    'y': [0x00,0x00,0x11,0x11,0x0f,0x01,0x0e], 'z': [0x00,0x00,0x1f,0x02,0x04,0x08,0x1f],
+    '0': [0x0e,0x11,0x13,0x15,0x19,0x11,0x0e], '1': [0x04,0x0c,0x04,0x04,0x04,0x04,0x0e],
+    '2': [0x0e,0x11,0x01,0x06,0x08,0x10,0x1f], '3': [0x1f,0x02,0x04,0x02,0x01,0x11,0x0e],
+    '4': [0x02,0x06,0x0a,0x12,0x1f,0x02,0x02], '5': [0x1f,0x10,0x1e,0x01,0x01,0x11,0x0e],
+    '6': [0x06,0x08,0x10,0x1e,0x11,0x11,0x0e], '7': [0x1f,0x01,0x02,0x04,0x08,0x08,0x08],
+    '8': [0x0e,0x11,0x11,0x0e,0x11,0x11,0x0e], '9': [0x0e,0x11,0x11,0x0f,0x01,0x02,0x0c],
+    '!': [0x04,0x04,0x04,0x04,0x04,0x00,0x04], '?': [0x0e,0x11,0x01,0x02,0x04,0x00,0x04],
+    '.': [0x00,0x00,0x00,0x00,0x00,0x04,0x04], ',': [0x00,0x00,0x00,0x00,0x00,0x04,0x08],
+    ':': [0x00,0x04,0x04,0x00,0x04,0x04,0x00], ';': [0x00,0x04,0x04,0x00,0x04,0x04,0x08],
+    "'": [0x04,0x04,0x08,0x00,0x00,0x00,0x00], '"': [0x0a,0x0a,0x14,0x00,0x00,0x00,0x00],
+    '-': [0x00,0x00,0x00,0x1f,0x00,0x00,0x00], '—': [0x00,0x00,0x00,0x1f,0x00,0x00,0x00],
+    '–': [0x00,0x00,0x00,0x0e,0x00,0x00,0x00], '~': [0x00,0x0a,0x15,0x00,0x00,0x00,0x00],
+    '(': [0x02,0x04,0x08,0x08,0x08,0x04,0x02], ')': [0x08,0x04,0x02,0x02,0x02,0x04,0x08],
+    '[': [0x0e,0x08,0x08,0x08,0x08,0x08,0x0e], ']': [0x0e,0x02,0x02,0x02,0x02,0x02,0x0e],
+    '<': [0x02,0x04,0x08,0x10,0x08,0x04,0x02], '>': [0x08,0x04,0x02,0x01,0x02,0x04,0x08],
+    '/': [0x01,0x02,0x04,0x08,0x10,0x00,0x00], '+': [0x00,0x04,0x04,0x1f,0x04,0x04,0x00],
+    '=': [0x00,0x1f,0x00,0x1f,0x00,0x00,0x00], '%': [0x19,0x19,0x02,0x04,0x08,0x13,0x13],
+    '▲': [0x00,0x04,0x04,0x0e,0x0e,0x1f,0x1f],
+    '▼': [0x1f,0x1f,0x0e,0x0e,0x04,0x04,0x00], ' ': [0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+  };
+
+  function drawGlyph(ctx, ch, px, py, color) {
+    const rows = FONT_GLYPHS[ch] || FONT_GLYPHS['?'];
+    ctx.fillStyle = color;
+    for (let y = 0; y < 7; y++) {
+      const bits = rows[y];
+      for (let x = 0; x < 5; x++) {
+        if ((bits >> (4 - x)) & 1) {
+          ctx.fillRect(px + x, py + y, 1, 1);
+        }
+      }
+    }
+  }
+
+  function drawPixelText(ctx, text, startX, startY, color = '#ffffff', shadowColor = OUTLINE_COLOR) {
+    let curX = startX;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (shadowColor) {
+        drawGlyph(ctx, ch, curX + 1, startY + 1, shadowColor);
+      }
+      drawGlyph(ctx, ch, curX, startY, color);
+      curX += 6;
+    }
+    return curX;
+  }
+
+  function wrapDialogueText(text, maxCharsPerLine = 28) {
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if ((cur + (cur ? ' ' : '') + w).length <= maxCharsPerLine) {
+        cur += (cur ? ' ' : '') + w;
+      } else {
+        if (cur) lines.push(cur);
+        cur = w;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  // =========================================================================
+  // SECTION 4: Dual-Atlas 16x16 Hex Matrix Art Engine
+  // =========================================================================
+  const PAL_MAP = {
+    cobbleMidday: [
+      [0,0,0,0], OUTLINE_RGBA,
+      vceRgba(4,4,5), // 2: Stone base
+      vceRgba(5,5,6), // 3: Stone light face
+      vceRgba(3,3,4), // 4: Soft mortar line
+      vceRgba(6,6,6), // 5: Subtle top edge
+      vceRgba(2,2,3), // 6: Deep crevice
+      vceRgba(6,5,3), // 7: Warm plaza sandstone
+      vceRgba(5,4,2), // 8: Plaza mortar
+      vceRgba(7,6,4), // 9: Plaza highlight
+      vceRgba(7,6,1), // A: Gold trim
+      vceRgba(7,7,7), [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    cobbleTwilight: [
+      [0,0,0,0], OUTLINE_RGBA,
+      vceRgba(2,2,4), // 2: Dusk stone base
+      vceRgba(3,3,5), // 3: Dusk stone light
+      vceRgba(1,1,3), // 4: Dusk mortar
+      vceRgba(4,4,6), // 5: Dusk highlight
+      vceRgba(1,1,2), // 6: Deep crevice
+      vceRgba(3,2,4), // 7: Dusk plaza
+      vceRgba(2,1,3), // 8: Dusk plaza mortar
+      vceRgba(4,3,5), // 9: Dusk plaza highlight
+      vceRgba(5,4,1), // A: Muted gold trim
+      vceRgba(5,5,7), [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    grassMidday: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(1,6,2), vceRgba(2,7,3), vceRgba(0,4,1),
+      vceRgba(3,7,3), vceRgba(0,3,1), vceRgba(7,2,2), vceRgba(7,6,1), vceRgba(3,4,7),
+      vceRgba(7,7,7), vceRgba(1,5,2), [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    grassTwilight: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(0,3,2), vceRgba(1,4,3), vceRgba(0,2,1),
+      vceRgba(1,5,3), vceRgba(0,1,1), vceRgba(5,1,2), vceRgba(6,4,1), vceRgba(2,2,5),
+      vceRgba(5,5,6), vceRgba(0,3,2), [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    stoneMidday: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(6,5,4), vceRgba(7,6,5), vceRgba(4,3,3),
+      vceRgba(7,7,7), vceRgba(6,2,1), vceRgba(5,1,1), vceRgba(7,3,2), vceRgba(1,3,6),
+      vceRgba(7,6,1), vceRgba(4,2,1), vceRgba(3,1,0), vceRgba(2,5,7), [0,0,0,0], [0,0,0,0]
+    ],
+    stoneTwilight: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(3,2,4), vceRgba(4,3,5), vceRgba(2,1,3),
+      vceRgba(5,5,7), vceRgba(4,1,3), vceRgba(3,0,2), vceRgba(5,2,4), vceRgba(1,1,4),
+      vceRgba(7,5,0), vceRgba(2,1,2), vceRgba(1,0,1), vceRgba(7,6,1), [0,0,0,0], [0,0,0,0]
+    ],
+    waterMidday: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(1,4,7), vceRgba(2,6,7), vceRgba(0,2,5),
+      vceRgba(5,7,7), vceRgba(7,7,7), vceRgba(0,1,4), vceRgba(4,5,6), vceRgba(3,4,5),
+      [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    waterTwilight: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(1,2,5), vceRgba(1,3,6), vceRgba(0,1,3),
+      vceRgba(3,4,7), vceRgba(5,6,7), vceRgba(0,0,2), vceRgba(2,3,4), vceRgba(1,2,3),
+      [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]
+    ],
+    marketMidday: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(7,2,2), vceRgba(7,7,7), vceRgba(5,1,1),
+      vceRgba(1,3,7), vceRgba(7,6,1), vceRgba(4,2,1), vceRgba(3,1,0), vceRgba(6,4,2),
+      vceRgba(1,6,2), vceRgba(7,4,1), vceRgba(5,3,7), vceRgba(2,6,7), [0,0,0,0], [0,0,0,0]
+    ],
+    marketTwilight: [
+      [0,0,0,0], OUTLINE_RGBA, vceRgba(5,1,2), vceRgba(5,5,6), vceRgba(3,0,1),
+      vceRgba(1,2,5), vceRgba(6,4,0), vceRgba(2,1,1), vceRgba(1,0,0), vceRgba(4,2,2),
+      vceRgba(0,4,2), vceRgba(5,2,1), vceRgba(3,1,5), vceRgba(7,6,1), [0,0,0,0], [0,0,0,0]
+    ],
+    charPalette: [
+      [0,0,0,0],       // 0: Transparent
+      OUTLINE_RGBA,    // 1: Dark navy-slate outline (1,1,2)
+      vceRgba(7,1,1),  // 2: Bright crimson red
+      vceRgba(5,0,1),  // 3: Dark crimson shadow
+      vceRgba(1,4,7),  // 4: Cobalt blue armor / tunic
+      vceRgba(0,2,5),  // 5: Deep navy armor shadow
+      vceRgba(7,6,5),  // 6: Fair anime skin
+      vceRgba(6,4,3),  // 7: Warm skin shadow / boots
+      vceRgba(7,7,7),  // 8: Pure white
+      vceRgba(5,5,6),  // 9: Silver-grey frill shadow / steel
+      vceRgba(7,6,1),  // A: Bright gold
+      vceRgba(5,4,0),  // B: Dark gold / bronze / oak staff
+      vceRgba(1,6,2),  // C: Emerald green
+      vceRgba(0,4,1),  // D: Forest green shadow
+      vceRgba(2,2,3),  // E: Glossy jet-black hair base
+      vceRgba(7,4,5)   // F: Pastel pink
+    ]
+  };
+
+  function parseHexTile(hexRows, palette) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(16, 16);
+    const d = imgData.data;
+
+    for (let y = 0; y < 16; y++) {
+      const row = hexRows[y] || '0000000000000000';
+      for (let x = 0; x < 16; x++) {
+        const idx = parseInt(row[x], 16) || 0;
+        const col = palette[idx] || [0,0,0,0];
+        const p = (y * 16 + x) * 4;
+        d[p] = col[0];
+        d[p+1] = col[1];
+        d[p+2] = col[2];
+        d[p+3] = col[3];
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+  }
+
+  // 16x16 Hex Row Matrices
+  const TILE_HEX = {
+    // Soft, rounded cobblestone
+    cobble1: [
+      "4444444444444444",
+      "4333322443332224",
+      "4355332443533224",
+      "4222226442222264",
+      "4444444444444444",
+      "4224433332244334",
+      "4224435533244354",
+      "4264422222644224",
+      "4444444444444444",
+      "4333222443333224",
+      "4353322443553324",
+      "4222226442222264",
+      "4444444444444444",
+      "4224433322244334",
+      "4264422222644224",
+      "4444444444444444"
+    ],
+    cobble2: [
+      "4444444444444444",
+      "4333222443333224",
+      "4353322443533224",
+      "4222226442222264",
+      "4444444444444444",
+      "4224433322244334",
+      "4224435332244354",
+      "4264422222644224",
+      "4444444444444444",
+      "4333322443332224",
+      "4355332443533224",
+      "4222226442222264",
+      "4444444444444444",
+      "4224433332244334",
+      "4264422222644224",
+      "4444444444444444"
+    ],
+    curb: [
+      "1111111111111111",
+      "3333333333333333",
+      "5555555555555555",
+      "2222222222222222",
+      "4444444444444444",
+      "4444444444444444",
+      "4333322443332224",
+      "4355332443533224",
+      "4222226442222264",
+      "4444444444444444",
+      "4224433332244334",
+      "4224435533244354",
+      "4264422222644224",
+      "4444444444444444",
+      "4333222443333224",
+      "4444444444444444"
+    ],
+    grass: [
+      "2232223223222232",
+      "2353235325322353",
+      "2232223223222232",
+      "2222244222222442",
+      "2322222223222222",
+      "3532232235322322",
+      "2322353223223532",
+      "2222232222222322",
+      "2232222222322222",
+      "2353224423532244",
+      "2232222222322222",
+      "2222232222222322",
+      "2232353222323532",
+      "2353232223532322",
+      "2232222222322222",
+      "2222222222222222"
+    ],
+    flowers: [
+      "2232223223222232",
+      "2353235325322353",
+      "2232171223218132",
+      "2221777122188812",
+      "2322171223218122",
+      "3532212235321222",
+      "2322353223223532",
+      "2222232222222322",
+      "2232222222322222",
+      "2353219123532171",
+      "22321999122317771",
+      "2222219122222171",
+      "2232353222323532",
+      "2353232223532322",
+      "2232222222322222",
+      "2222222222222222"
+    ],
+    // Warm sandstone plaza flagstones
+    plaza: [
+      "8888888888888888",
+      "8999997889999978",
+      "8977777889777778",
+      "8977777889777778",
+      "8977777889777778",
+      "8977777889777778",
+      "8777774887777748",
+      "8888888888888888",
+      "8888888888888888",
+      "8999997889999978",
+      "8977777889777778",
+      "8977777889777778",
+      "8977777889777778",
+      "8977777889777778",
+      "8777774887777748",
+      "8888888888888888"
+    ],
+    carpet: [
+      "1111111111111111",
+      "1AAAAAAAAAAAAAA1",
+      "1A666666666666A1",
+      "1A688888888886A1",
+      "1A686666666686A1",
+      "1A686666666686A1",
+      "1A686666666686A1",
+      "1A688888888886A1",
+      "1A666666666666A1",
+      "1AAAAAAAAAAAAAA1",
+      "1111111111111111",
+      "1222222222222221",
+      "1333333333333331",
+      "1222222222222221",
+      "1444444444444441",
+      "1111111111111111"
+    ],
+    waterRim: [
+      "1111111111111111",
+      "8888888888888888",
+      "9999999999999999",
+      "1111111111111111",
+      "2223223322232233",
+      "2356532235653223",
+      "3566653356665335",
+      "2356532235653223",
+      "2223223322232233",
+      "2356532235653223",
+      "3566653356665335",
+      "2356532235653223",
+      "2223223322232233",
+      "1111111111111111",
+      "9999999999999999",
+      "8888888888888888"
+    ],
+    waterRim0: [
+      "1111111111111111",
+      "8888888888888888",
+      "9999999999999999",
+      "1111111111111111",
+      "2223223322232233",
+      "2356532235653223",
+      "3566653356665335",
+      "2356532235653223",
+      "2223223322232233",
+      "2356532235653223",
+      "3566653356665335",
+      "2356532235653223",
+      "2223223322232233",
+      "1111111111111111",
+      "9999999999999999",
+      "8888888888888888"
+    ],
+    waterRim1: [
+      "1111111111111111",
+      "8888888888888888",
+      "9999999999999999",
+      "1111111111111111",
+      "2233222322332223",
+      "5322356532232356",
+      "6533566653353566",
+      "5322356532232356",
+      "2233222322332223",
+      "5322356532232356",
+      "6533566653353566",
+      "5322356532232356",
+      "2233222322332223",
+      "1111111111111111",
+      "9999999999999999",
+      "8888888888888888"
+    ],
+    waterRim2: [
+      "1111111111111111",
+      "8888888888888888",
+      "9999999999999999",
+      "1111111111111111",
+      "2223223322232233",
+      "3223235653223565",
+      "6653353566653356",
+      "3223235653223565",
+      "2223223322232233",
+      "3223235653223565",
+      "6653353566653356",
+      "3223235653223565",
+      "2223223322232233",
+      "1111111111111111",
+      "9999999999999999",
+      "8888888888888888"
+    ],
+    waterRim3: [
+      "1111111111111111",
+      "8888888888888888",
+      "9999999999999999",
+      "1111111111111111",
+      "3322232233222322",
+      "6532232356532235",
+      "5335356665335666",
+      "6532232356532235",
+      "3322232233222322",
+      "6532232356532235",
+      "5335356665335666",
+      "6532232356532235",
+      "3322232233222322",
+      "1111111111111111",
+      "9999999999999999",
+      "8888888888888888"
+    ],
+    wallBase: [
+      "1111111111111111",
+      "1233321123332211",
+      "1355321135532411",
+      "1333241133324411",
+      "1224441122444111",
+      "1111111111111111",
+      "1123332211233321",
+      "1135532411355321",
+      "1133324411333241",
+      "1122444111224441",
+      "1111111111111111",
+      "1233321123332211",
+      "1355321135532411",
+      "1333241133324411",
+      "1224441122444111",
+      "1111111111111111"
+    ],
+    wallMid: [
+      "1111111111111111",
+      "3555555555555553",
+      "2333333333333332",
+      "1111111111111111",
+      "1233321123332211",
+      "1355321135532411",
+      "1333241133324411",
+      "1224441122444111",
+      "1111111111111111",
+      "1123332211233321",
+      "1135532411355321",
+      "1133324411333241",
+      "1122444111224441",
+      "1111111111111111",
+      "4444444444444444",
+      "1111111111111111"
+    ],
+    stainedWindow: [
+      "1111111111111111",
+      "1221111111112211",
+      "1219999999991211",
+      "1199DD99DD999111",
+      "119DDDDDDDD99111",
+      "119D99AA99D99111",
+      "1199AAAAAA999111",
+      "1111AAAAAA111111",
+      "1199AAAAAA999111",
+      "119D99AA99D99111",
+      "119DDDDDDDD99111",
+      "1199DD99DD999111",
+      "1219999999991211",
+      "1221111111112211",
+      "1233333333333211",
+      "1111111111111111"
+    ],
+    oakDoor: [
+      "1111111111111111",
+      "1111111111111111",
+      "11BCCCCCCCCB1111",
+      "11CBCCCCBCCC1111",
+      "11CBCCBBCCCC1111",
+      "11CBCCCCBCCC1111",
+      "11CBBBCCBCCC1111",
+      "11CBCCCCB11C1111",
+      "11CBCCCCB18C1111",
+      "11CBBBCCB11C1111",
+      "11CBCCCCBCCC1111",
+      "11CBCCCCBCCC1111",
+      "11CBCCCCBCCC1111",
+      "11BCCCCCCCCB1111",
+      "1111111111111111",
+      "1111111111111111"
+    ],
+    timberWall: [
+      "1111111111111111",
+      "BBBBBBBBBBBBBBBB",
+      "BCCCCCCCCCCCCCCB",
+      "BC111111111111CB",
+      "BC155555555551CB",
+      "BC153333333351CB",
+      "BC153333333351CB",
+      "BC153333333351CB",
+      "BC111111111111CB",
+      "BC155555555551CB",
+      "BC153333333351CB",
+      "BC153333333351CB",
+      "BC153333333351CB",
+      "BC111111111111CB",
+      "BCCCCCCCCCCCCCCB",
+      "1111111111111111"
+    ],
+    // Scalloped Terra-cotta Roof Tiles
+    roofTile: [
+      "1777177717771777",
+      "6886688668866886",
+      "6666666666666666",
+      "7667766776677667",
+      "1111111111111111",
+      "7717771777177717",
+      "8668866886688668",
+      "6666666666666666",
+      "6776677667766776",
+      "1111111111111111",
+      "1777177717771777",
+      "6886688668866886",
+      "6666666666666666",
+      "7667766776677667",
+      "1111111111111111",
+      "4444444444444444"
+    ],
+    awningRed: [
+      "1111111111111111",
+      "2222333322223333",
+      "2222333322223333",
+      "2222333322223333",
+      "4444333344443333",
+      "4444333344443333",
+      "2222333322223333",
+      "2222333322223333",
+      "2222333322223333",
+      "4444333344443333",
+      "4444333344443333",
+      "2222333322223333",
+      "2222333322223333",
+      "1221133112211331",
+      "0110011001100110",
+      "0000000000000000"
+    ],
+    awningBlue: [
+      "1111111111111111",
+      "5555666655556666",
+      "5555666655556666",
+      "5555666655556666",
+      "5555666655556666",
+      "1111666611116666",
+      "5555666655556666",
+      "5555666655556666",
+      "5555666655556666",
+      "1111666611116666",
+      "5555666655556666",
+      "5555666655556666",
+      "5555666655556666",
+      "1551166115511661",
+      "0110011001100110",
+      "0000000000000000"
+    ],
+    potionStall: [
+      "1111111111111111",
+      "1888888888888881",
+      "1877777777777781",
+      "1871111111111781",
+      "1871CD11AA11C781",
+      "1871CD11AA11C781",
+      "1871111111111781",
+      "1871BC11BD11A781",
+      "1871BC11BD11A781",
+      "1888888888888881",
+      "1111111111111111",
+      "1888888888888881",
+      "1777777777777771",
+      "1871111111111781",
+      "1877777777777781",
+      "1111111111111111"
+    ],
+    // Ornate Wrought-Iron & Glowing Glass Street Lamp
+    lampPost: [
+      "0000000110000000",
+      "0000011111100000",
+      "0000166336610000",
+      "0000163333610000",
+      "0000166336610000",
+      "0000011661100000",
+      "0000001111000000",
+      "0000000110000000",
+      "0000000110000000",
+      "0000000110000000",
+      "0000000110000000",
+      "0000000110000000",
+      "0000001111000000",
+      "0000011991100000",
+      "0000119999110000",
+      "0000111111110000"
+    ],
+    ironFence: [
+      "0010000100001000",
+      "0181001810018100",
+      "0010000100001000",
+      "1111111111111111",
+      "0010000100001000",
+      "0010000100001000",
+      "0010000100001000",
+      "0010000100001000",
+      "1111111111111111",
+      "0010000100001000",
+      "0010000100001000",
+      "0010000100001000",
+      "0010000100001000",
+      "1111111111111111",
+      "2222222222222222",
+      "1111111111111111"
+    ],
+    gatePillar: [
+      "0000111111110000",
+      "0001555555551000",
+      "00015AA55AA51000",
+      "0001555555551000",
+      "0000111111110000",
+      "0011111111111100",
+      "0133333333333310",
+      "0135555555555310",
+      "0135333333335310",
+      "0135333333335310",
+      "0135333333335310",
+      "0135555555555310",
+      "0133333333333310",
+      "1111111111111111",
+      "2222222222222222",
+      "1111111111111111"
+    ],
+    bench: [
+      "0000000000000000",
+      "0000000000000000",
+      "0000000000000000",
+      "0000000000000000",
+      "1111111111111111",
+      "1888888888888881",
+      "1777777777777771",
+      "1111111111111111",
+      "0000000000000000",
+      "1111111111111111",
+      "1888888888888881",
+      "1777777777777771",
+      "1111111111111111",
+      "1881000000001881",
+      "1771000000001771",
+      "1111000000001111"
+    ],
+    fountainSpire: [
+      "0000001111000000",
+      "0000016666100000",
+      "0000167667610000",
+      "0000166666610000",
+      "0000016666100000",
+      "0000111111110000",
+      "0001666666661000",
+      "0016655555566100",
+      "0166544444456610",
+      "1665433333345661",
+      "1665433333345661",
+      "0166544444456610",
+      "0016655555566100",
+      "0001666666661000",
+      "0000111111110000",
+      "0000001111000000"
+    ],
+    fountainSpire0: [
+      "0000001111000000",
+      "0000016666100000",
+      "0000167667610000",
+      "0000166666610000",
+      "0000016666100000",
+      "0000111111110000",
+      "0001666666661000",
+      "0016655555566100",
+      "0166544444456610",
+      "1665433333345661",
+      "1665433333345661",
+      "0166544444456610",
+      "0016655555566100",
+      "0001666666661000",
+      "0000111111110000",
+      "0000001111000000"
+    ],
+    fountainSpire1: [
+      "0000501111050000",
+      "0005016666105000",
+      "0050167667610500",
+      "0000166666610000",
+      "0000016666100000",
+      "0000111111110000",
+      "0001666666661000",
+      "0016656666566100",
+      "0166545555456610",
+      "1665433333345661",
+      "1665433333345661",
+      "0166544444456610",
+      "0016655555566100",
+      "0001666666661000",
+      "0000111111110000",
+      "0000001111000000"
+    ],
+    fountainSpire2: [
+      "0000001111000000",
+      "0000516666150000",
+      "0005167667615000",
+      "0050166666610500",
+      "0000016666100000",
+      "0000111111110000",
+      "0001666666661000",
+      "0016655555566100",
+      "0166545665456610",
+      "1665434554345661",
+      "1665433333345661",
+      "0166544444456610",
+      "0016655555566100",
+      "0001666666661000",
+      "0000111111110000",
+      "0000001111000000"
+    ],
+    fountainSpire3: [
+      "0000001111000000",
+      "0000016666100000",
+      "0000167667610000",
+      "0000166666610000",
+      "0005016666105000",
+      "0050111111110500",
+      "0001666666661000",
+      "0016655555566100",
+      "0166544444456610",
+      "1665433333345661",
+      "1665433553345661",
+      "0166545665456610",
+      "0016656666566100",
+      "0001666666661000",
+      "0000111111110000",
+      "0000001111000000"
+    ]
+  };
+
+  // Full-Proportion 16x16 SD Chibi Character Sprites
+  const SPRITE_HEX = {
+    heroDown0: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0123222222223210",
+      "0126626666266210",
+      "0166186666816610",
+      "0166146666416610",
+      "0016666776666100",
+      "0011884444881100",
+      "0144894444984410",
+      "0166144AA4416610",
+      "0011155445511100",
+      "0001558888551000",
+      "0001771001771000",
+      "0001771001771000",
+      "0000110000110000"
+    ],
+    heroDown1: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0123222222223210",
+      "0126626666266210",
+      "0166186666816610",
+      "0166146666416610",
+      "0016666776666100",
+      "0011884444881100",
+      "0144894444984410",
+      "0166144AA4416610",
+      "0011155445511100",
+      "0017758888510000",
+      "0017710001771000",
+      "0001100001771000",
+      "0000000000110000"
+    ],
+    heroDown2: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0123222222223210",
+      "0126626666266210",
+      "0166186666816610",
+      "0166146666416610",
+      "0016666776666100",
+      "0011884444881100",
+      "0144894444984410",
+      "0166144AA4416610",
+      "0011155445511100",
+      "0000158888577100",
+      "0001771000177100",
+      "0001771000011000",
+      "0000110000000000"
+    ],
+    heroUp0: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0122222222222210",
+      "0123222222223210",
+      "0123322222233210",
+      "0013333333333100",
+      "0011884444881100",
+      "0144444444444410",
+      "0144554444554410",
+      "0166155445516610",
+      "0011155555511100",
+      "0001554444551000",
+      "0001771001771000",
+      "0001771001771000",
+      "0000110000110000"
+    ],
+    heroUp1: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0122222222222210",
+      "0123222222223210",
+      "0123322222233210",
+      "0013333333333100",
+      "0011884444881100",
+      "0144444444444410",
+      "0144554444554410",
+      "0166155445516610",
+      "0011155555511100",
+      "0017754444510000",
+      "0017710001771000",
+      "0001100001771000",
+      "0000000000110000"
+    ],
+    heroUp2: [
+      "0001111111111000",
+      "0012222222222100",
+      "0122282222822210",
+      "0122222222222210",
+      "0123222222223210",
+      "0123322222233210",
+      "0013333333333100",
+      "0011884444881100",
+      "0144444444444410",
+      "0144554444554410",
+      "0166155445516610",
+      "0011155555511100",
+      "0000154444577100",
+      "0001771000177100",
+      "0001771000011000",
+      "0000110000000000"
+    ],
+    heroLeft0: [
+      "0001111111110000",
+      "0012222222221000",
+      "0122282222222100",
+      "0126666222232100",
+      "0161866622332100",
+      "0161466623331000",
+      "0016667661110000",
+      "0001144884410000",
+      "0001448984410000",
+      "0001446644410000",
+      "0001551155510000",
+      "0001888885510000",
+      "0000144444100000",
+      "0000177771000000",
+      "0000177771000000",
+      "0000011110000000"
+    ],
+    heroLeft1: [
+      "0001111111110000",
+      "0012222222221000",
+      "0122282222222100",
+      "0126666222232100",
+      "0161866622332100",
+      "0161466623331000",
+      "0016667661110000",
+      "0001144884410000",
+      "0001448984410000",
+      "0001446644410000",
+      "0001551155510000",
+      "0001888885510000",
+      "0001444144410000",
+      "0017771017771000",
+      "0001110001110000",
+      "0000000000000000"
+    ],
+    heroLeft2: [
+      "0001111111110000",
+      "0012222222221000",
+      "0122282222222100",
+      "0126666222232100",
+      "0161866622332100",
+      "0161466623331000",
+      "0016667661110000",
+      "0001144884410000",
+      "0001448984410000",
+      "0001446644410000",
+      "0001551155510000",
+      "0001888885510000",
+      "0014441014441000",
+      "0017771001777100",
+      "0001110000111000",
+      "0000000000000000"
+    ],
+    nyahIdle0: [
+      "0011000000001100",
+      "01EF11111111FE10",
+      "01EE88988988EE10",
+      "1EE1EEEEEEEE1EE1",
+      "1E51EE6666EE15E1",
+      "1EE1618668161EE1",
+      "1EE161A66A161EE1",
+      "01116F6666F61110",
+      "0000111AA1110000",
+      "0001EE8888EE1000",
+      "001EE188881EE100",
+      "0016618998166100",
+      "0011888888881100",
+      "0001998888991000",
+      "0000188118810000",
+      "0000111001110000"
+    ],
+    nyahIdle1: [
+      "0001100000011000",
+      "001EF111111FE100",
+      "01EE88988988EE10",
+      "1EE1EEEEEEEE1EE1",
+      "1E51EE6666EE15E1",
+      "1EE1618668161EE1",
+      "1EE161A66A161EE1",
+      "01116F6666F61110",
+      "0000111AA1110000",
+      "0001EE8888EE1000",
+      "001EE188881EE110",
+      "00166189981661E1",
+      "00118888888811E1",
+      "0001998888991E10",
+      "0000188118811100",
+      "0000111001110000"
+    ],
+    lumina0: [
+      "0001111111111000",
+      "001AAAAAAAAAA100",
+      "01AA88AAAA88AA10",
+      "11AAB666666BAA11",
+      "1661618668161661",
+      "011161C66C161110",
+      "001A16677661A100",
+      "001A11822811A100",
+      "0011CC8888CC1100",
+      "01CCCC8998CCCC10",
+      "01661CCCCCC16610",
+      "0011CCCCCCCC1100",
+      "0001CCDDDDCC1000",
+      "0001771001771000",
+      "0001771001771000",
+      "0000110000110000"
+    ],
+    elder0: [
+      "0001111111111000",
+      "0018888888888100",
+      "0188998888998810",
+      "0189666666669810",
+      "0186186666816810",
+      "0116668888666110",
+      "01B1888998881100",
+      "01B1338888331000",
+      "01B1333AA3333100",
+      "01B1663333663100",
+      "01B1333AA3331000",
+      "01B1333333331000",
+      "01B1339999331000",
+      "01B1771001771000",
+      "01B1771001771000",
+      "0010110000110000"
+    ],
+    guard0: [
+      "0000012222100000",
+      "000111AAAA111000",
+      "001AA8AAAA8AA100",
+      "011BBBBBBBBBB110",
+      "0191618668161000",
+      "0181666776661000",
+      "01B111AAAA111000",
+      "01B1AA8888AA1100",
+      "01B1AAAAAAAAA100",
+      "01B166BBBB661000",
+      "01B144AAAA441000",
+      "01B1445555441000",
+      "01B1991001991000",
+      "01B1771001771000",
+      "01B1771001771000",
+      "0010110000110000"
+    ],
+    child0: [
+      "0000000000000000",
+      "0001111111111000",
+      "0017772222777100",
+      "0177227777227710",
+      "0176676666766710",
+      "0166186666816610",
+      "0166146666416610",
+      "0016F666666F6100",
+      "00011CCCCCC11000",
+      "001CCCD88DCCC100",
+      "00166CCCCCC66100",
+      "00011BBBBBB11000",
+      "0000166116610000",
+      "0000177117710000",
+      "0000011001100000",
+      "0000000000000000"
+    ]
+  };
+
+  const tileCanvasesMidday = {};
+  const tileCanvasesTwilight = {};
+
+  function buildTileAtlases() {
+    const tileDefs = [
+      { id: 'cobble1', hex: TILE_HEX.cobble1, palM: PAL_MAP.cobbleMidday, palT: PAL_MAP.cobbleTwilight },
+      { id: 'cobble2', hex: TILE_HEX.cobble2, palM: PAL_MAP.cobbleMidday, palT: PAL_MAP.cobbleTwilight },
+      { id: 'curb', hex: TILE_HEX.curb, palM: PAL_MAP.cobbleMidday, palT: PAL_MAP.cobbleTwilight },
+      { id: 'grass', hex: TILE_HEX.grass, palM: PAL_MAP.grassMidday, palT: PAL_MAP.grassTwilight },
+      { id: 'flowers', hex: TILE_HEX.flowers, palM: PAL_MAP.grassMidday, palT: PAL_MAP.grassTwilight },
+      { id: 'plaza', hex: TILE_HEX.plaza, palM: PAL_MAP.cobbleMidday, palT: PAL_MAP.cobbleTwilight },
+      { id: 'carpet', hex: TILE_HEX.carpet, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'waterRim', hex: TILE_HEX.waterRim, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'waterRim0', hex: TILE_HEX.waterRim0, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'waterRim1', hex: TILE_HEX.waterRim1, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'waterRim2', hex: TILE_HEX.waterRim2, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'waterRim3', hex: TILE_HEX.waterRim3, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'wallBase', hex: TILE_HEX.wallBase, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'wallMid', hex: TILE_HEX.wallMid, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'stainedWindow', hex: TILE_HEX.stainedWindow, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'oakDoor', hex: TILE_HEX.oakDoor, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'timberWall', hex: TILE_HEX.timberWall, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'roofTile', hex: TILE_HEX.roofTile, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'awningRed', hex: TILE_HEX.awningRed, palM: PAL_MAP.marketMidday, palT: PAL_MAP.marketTwilight },
+      { id: 'awningBlue', hex: TILE_HEX.awningBlue, palM: PAL_MAP.marketMidday, palT: PAL_MAP.marketTwilight },
+      { id: 'potionStall', hex: TILE_HEX.potionStall, palM: PAL_MAP.marketMidday, palT: PAL_MAP.marketTwilight },
+      { id: 'lampPost', hex: TILE_HEX.lampPost, palM: PAL_MAP.marketMidday, palT: PAL_MAP.marketTwilight },
+      { id: 'ironFence', hex: TILE_HEX.ironFence, palM: PAL_MAP.cobbleMidday, palT: PAL_MAP.cobbleTwilight },
+      { id: 'gatePillar', hex: TILE_HEX.gatePillar, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'bench', hex: TILE_HEX.bench, palM: PAL_MAP.stoneMidday, palT: PAL_MAP.stoneTwilight },
+      { id: 'fountainSpire', hex: TILE_HEX.fountainSpire, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'fountainSpire0', hex: TILE_HEX.fountainSpire0, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'fountainSpire1', hex: TILE_HEX.fountainSpire1, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'fountainSpire2', hex: TILE_HEX.fountainSpire2, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'fountainSpire3', hex: TILE_HEX.fountainSpire3, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight }
+    ];
+
+    tileDefs.forEach(t => {
+      tileCanvasesMidday[t.id] = parseHexTile(t.hex, t.palM);
+      tileCanvasesTwilight[t.id] = parseHexTile(t.hex, t.palT);
+    });
+
+    Object.keys(SPRITE_HEX).forEach(k => {
+      const spr = parseHexTile(SPRITE_HEX[k], PAL_MAP.charPalette);
+      tileCanvasesMidday[k] = spr;
+      tileCanvasesTwilight[k] = spr;
+    });
+
+    tileCanvasesMidday['heroRight0'] = flipCanvasH(tileCanvasesMidday['heroLeft0']);
+    tileCanvasesMidday['heroRight1'] = flipCanvasH(tileCanvasesMidday['heroLeft1']);
+    tileCanvasesMidday['heroRight2'] = flipCanvasH(tileCanvasesMidday['heroLeft2']);
+    tileCanvasesTwilight['heroRight0'] = tileCanvasesMidday['heroRight0'];
+    tileCanvasesTwilight['heroRight1'] = tileCanvasesMidday['heroRight1'];
+    tileCanvasesTwilight['heroRight2'] = tileCanvasesMidday['heroRight2'];
+
+    tileCanvasesMidday['elderRight'] = flipCanvasH(tileCanvasesMidday['elder0']);
+    tileCanvasesTwilight['elderRight'] = tileCanvasesMidday['elderRight'];
+    tileCanvasesMidday['guardRight'] = flipCanvasH(tileCanvasesMidday['guard0']);
+    tileCanvasesTwilight['guardRight'] = tileCanvasesMidday['guardRight'];
+    tileCanvasesMidday['childRight'] = flipCanvasH(tileCanvasesMidday['child0']);
+    tileCanvasesTwilight['childRight'] = tileCanvasesMidday['childRight'];
+  }
+
+  function flipCanvasH(src) {
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d');
+    ctx.translate(src.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(src, 0, 0);
+    return c;
+  }
+
+  // =========================================================================
+  // SECTION 5: True 32x32 Pixel-Art Portrait Matrices (Scaled 2x to 64x64)
+  // ZERO VECTOR DRAWING: No fillPixelPoly, no fillPixelEllipse, no ellipse()!
+  // =========================================================================
+  const PORTRAIT_PAL = {
+    '0': vceRgba(0, 0, 2, 255), // 0: Deep midnight blue portrait background
+    '1': vceRgba(1, 1, 2, 255), // 1: Dark navy-slate pixel outline
+    '2': vceRgba(1, 1, 3, 255), // 2: Nyah glossy black-indigo hair base
+    '3': vceRgba(2, 2, 4, 255), // 3: Nyah hair midtone
+    '4': vceRgba(4, 4, 6, 255), // 4: Hair specular highlight / steel
+    '5': vceRgba(7, 6, 5, 255), // 5: Fair anime skin base
+    '6': vceRgba(6, 4, 3, 255), // 6: Warm skin shadow / chestnut
+    '7': vceRgba(7, 4, 4, 255), // 7: Cute anime cheek blush
+    '8': vceRgba(7, 7, 7, 255), // 8: Pure white (sclera, eye glint, maid frills, fang)
+    '9': vceRgba(5, 5, 6, 255), // 9: Silver-grey frill shadow
+    'A': vceRgba(7, 6, 0, 255), // A: Bright golden yellow (Nyah iris, bell, Lumina blonde hair)
+    'B': vceRgba(5, 4, 0, 255), // B: Deep amber gold (iris top shade, blonde hair shadow)
+    'C': vceRgba(1, 6, 2, 255), // C: Bright emerald green (Lumina iris & tunic)
+    'D': vceRgba(0, 4, 1, 255), // D: Forest emerald shadow
+    'E': vceRgba(7, 2, 2, 255), // E: Berry red (open mouth tongue, ruby brooch, guard plume)
+    'F': vceRgba(7, 4, 5, 255)  // F: Soft pink (Nyah inner cat ears)
+  };
+
+  const NYAH_PORTRAIT_BASE = [
+    "00000110000000000000000001100000",
+    "00001221000000000000000012210000",
+    "00012FF210000000000000012FF21000",
+    "00012FFF2100011111100012FFF21000",
+    "00122FFFF21112222221112FFFF22100",
+    "00122FFFF22889888898822FFFF22100",
+    "001222FF2288889889888822FF222100",
+    "00012222288988888888988222221000",
+    "00122332211111111111111223322100",
+    "01223443222332222223322234432210",
+    "01233222234443222234443222233210",
+    "12232212222222222222222221223221",
+    "12322122225522222222552222122321",
+    "12321012255552255225555221012321",
+    "12321012211115555551111221012321",
+    "12221012511115555551111521012221",
+    "12221012588B15555551B88521012221",
+    "1232101258AA85555558AA8521012321",
+    "12321012568865565556886521012321",
+    "12321012277555555555577221012321",
+    "12231001265555111155556210013221",
+    "01221001226555555855562210012210",
+    "01221000122665555556622100012210",
+    "00110000011116655661111000001100",
+    "00000000000112211221100000000000",
+    "0000000001122658A562211000000000",
+    "000000011222889AA988222110000000",
+    "00000112232888811888823221100000",
+    "00001223328898888889882332210000",
+    "00012233228888888888882233221000",
+    "00012332298889888898889223321000",
+    "00011111111111111111111111111000"
+  ];
+
+  const LUMINA_PORTRAIT_BASE = [
+    "00000000001111111111110000000000",
+    "0000000011AAAAAAAAAAAA1100000000",
+    "00000001AA88AAAAAAAA88AA10000000",
+    "0000001AAA888AAAAAA888AAA1000000",
+    "000001AAAAABBBBBBBBBBAAAAA100000",
+    "00001AAAAABAA88AA88AABAAAAA10000",
+    "00001AAAABAAA8AAAA8AAABAAAA10000",
+    "0001AAAAABAAAAAAAAAAAAABAAAA1000",
+    "0001AAAABAAA55AAAA55AAAABAAA1000",
+    "0001AAAABAA5555AA5555AAABAAA1000",
+    "0011AAAABA555555555555ABAAAA1100",
+    "01551AAAB55111155111155BAAA15510",
+    "155F51AAB51111155111115BAA15F551",
+    "0165551AB588D155551D885BA1555610",
+    "00116551B58CC855558CC85B15561100",
+    "00001165156886565568865156110000",
+    "00001AA115775555555577511AA10000",
+    "00001AAA1655551EE1555561AAA10000",
+    "00001ABA1165555555555611ABA10000",
+    "00001AAB1016655555566101BAA10000",
+    "00001AAA1001166556611001AAA10000",
+    "00001ABA1000016556100001ABA10000",
+    "00011AAA1111118888111111AAA11000",
+    "001CC1AA1888891EE1988881AA1CC100",
+    "01CCC1BA188991E8EE199881AB1CCC10",
+    "01CDCC118899991EE199998811CCDC10",
+    "1CCDDCCC8999999119999998CCCDDCC1",
+    "1CCDDCCCC88999988999988CCCCDDCC1",
+    "1CCDDDCCCC111118811111CCCCDDDCC1",
+    "1CCDDDDCCCCCCCC88CCCCCCCCDDDDCC1",
+    "1CCDDDDDCCCCCCC99CCCCCCCDDDDDCC1",
+    "01111111111111111111111111111110"
+  ];
+
+  const ELDER_PORTRAIT_BASE = [
+    "00000000011111111111000000000000",
+    "00000001188888888888110000000000",
+    "00000018888888888888881000000000",
+    "00000188889988889988888100000000",
+    "00001888899988889998888810000000",
+    "00001888998888888899888810000000",
+    "00018888988555555889888881000000",
+    "00018889855555555558988881000000",
+    "00188889551115511155988888100000",
+    "00188885518815518815588888100000",
+    "00188885511115511115588888100000",
+    "00018885555556655555588888100000",
+    "00018888555566655555888888100000",
+    "00001888888888888888888888100000",
+    "00001888888888888888888881000000",
+    "00000188888899988888888810000000",
+    "00000188888999998888888810000000",
+    "00001888888899988888888881000000",
+    "00018888888888888888888888100000",
+    "00188888888888888888888888810000",
+    "01888888888888888888888888881000",
+    "18888888888888888888888888888100",
+    "01111888888888888888888811111000",
+    "00001188888888888888881100000000",
+    "00013311888888888888113310000000",
+    "00133333118888888811333331000000",
+    "01333333331111111133333333100000",
+    "1333333BBA33333333ABB33333310000",
+    "133333BBAAA333333AAABB3333310000",
+    "133333BBAAA333333AAABB3333310000",
+    "1333333BBA33333333ABB33333310000",
+    "01111111111111111111111111110000"
+  ];
+
+  const GUARD_PORTRAIT_BASE = [
+    "0000000000001EE10000000000000000",
+    "000000000001EEEE1000000000000000",
+    "00000000001EEEEEE100000000000000",
+    "00000000001EEEEEE100000000000000",
+    "0000000001EEEEEEEE10000000000000",
+    "000000001EEEEEEEEEE1000000000000",
+    "00000001111111111111100000000000",
+    "0000001AAAAABBBBAAAAA10000000000",
+    "000001AAAAABBBBBAAAAAA1000000000",
+    "00001AAAAAABBBBBAAAAAAA100000000",
+    "0001AAAAAAAABBBBAAAAAAAA10000000",
+    "001AAAAAA111111111AAAAAAA1000000",
+    "01AAAAAA15555555551AAAAAAA100000",
+    "1AAAAAA151115511151BAAAAAAA10000",
+    "1BAAAAA151815518151BAAAAAAA10000",
+    "1BAAAAA151115511151BBAAAAAAB1000",
+    "1BBAAAA155556655551BBAAAAAAB1000",
+    "1BBBAAA155566665551BBBAAAAAB1000",
+    "1BBBBAA111111111111BBBBAAAAB1000",
+    "01BBBBAAAAAAAAAAAAAABBBBBAAB1000",
+    "001BBBAAAAAAAAAAAAAABBBBAA110000",
+    "00011BBAAAAAAAAAAAABBBBA11000000",
+    "00000111111111111111111100000000",
+    "000011AAAAAAAAAAAAAAA11000000000",
+    "0001AAAAAAAAAABBBBAAAAA100000000",
+    "001AAAAAAAAAAABBBBAAAAAA10000000",
+    "01AAAAAAAAAAAA1111AAAAAAA1000000",
+    "1AAAAAAAAAAAA199991AAAAAAA100000",
+    "1AAAAAAAAAAA19999991AAAAAAA10000",
+    "1AAAAAAAAAAA19999991AAAAAAA10000",
+    "1AAAAAAAAAAA19999991AAAAAAA10000",
+    "01111111111111111111111111110000"
+  ];
+
+  const CHILD_PORTRAIT_BASE = [
+    "00000000011000011000000000000000",
+    "00000001166100166100000000000000",
+    "00000016677611677611000000000000",
+    "00000166777666777666100000000000",
+    "00001667777777777776610000000000",
+    "00016677777777777777661000000000",
+    "00166777777777777777766100000000",
+    "01667777766677666777776610000000",
+    "16677777666677666677777661000000",
+    "16777766555555555566777761000000",
+    "01111665555555555556611110000000",
+    "00001655111155111155610000000000",
+    "00001651888B151888B1561000000000",
+    "00001651844815184481561000000000",
+    "00001651688615168861561000000000",
+    "00001655111155111155610000000000",
+    "00001657755555555577610000000000",
+    "000001655551EE155556100000000000",
+    "00000165551E88E15556100000000000",
+    "00000016555111155561000000000000",
+    "00000001655555555610000000000000",
+    "00000000116666661100000000000000",
+    "00000000001111110000000000000000",
+    "00000000011888811000000000000000",
+    "000000001CC8888CC100000000000000",
+    "00000001CCCC88CCCC10000000000000",
+    "0000001CCCCCDDCCCCC1000000000000",
+    "000001CCCCCCDDCCCCCC100000000000",
+    "00001CCCCCCCDDCCCCCCC10000000000",
+    "0001CCCCCCCCDDCCCCCCCC1000000000",
+    "001CCCCCCCCCDDCCCCCCCCC100000000",
+    "01111111111111111111111110000000"
+  ];
+
+  const portraitCache = {};
+
+  function replaceRowSlice(rowStr, startCol, replacement) {
+    return rowStr.substring(0, startCol) + replacement + rowStr.substring(startCol + replacement.length);
+  }
+
+  function compilePortraitCanvas(matrix32, palette = PORTRAIT_PAL) {
+    const c32 = document.createElement('canvas');
+    c32.width = 32;
+    c32.height = 32;
+    const ctx32 = c32.getContext('2d');
+    const imgData = ctx32.createImageData(32, 32);
+    const data = imgData.data;
+
+    for (let y = 0; y < 32; y++) {
+      const row = matrix32[y] || '0'.repeat(32);
+      for (let x = 0; x < 32; x++) {
+        const ch = row[x] || '0';
+        const col = palette[ch] || palette['0'];
+        const p = (y * 32 + x) * 4;
+        data[p] = col[0];
+        data[p + 1] = col[1];
+        data[p + 2] = col[2];
+        data[p + 3] = col[3];
+      }
+    }
+    ctx32.putImageData(imgData, 0, 0);
+
+    const c64 = document.createElement('canvas');
+    c64.width = 64;
+    c64.height = 64;
+    const ctx64 = c64.getContext('2d');
+    ctx64.imageSmoothingEnabled = false;
+    ctx64.drawImage(c32, 0, 0, 64, 64);
+    return c64;
+  }
+
+  function renderNyahPortrait(expression = 'smug', mouthOpen = false, blink = false, earTwitch = false) {
+    const key = `nyah_${expression}_${mouthOpen ? 1 : 0}_${blink ? 1 : 0}_${earTwitch ? 1 : 0}`;
+    if (portraitCache[key]) return portraitCache[key];
+
+    const mat = [...NYAH_PORTRAIT_BASE];
+
+    if (earTwitch) {
+      mat[0] = "00000011000000000000000011000000";
+      mat[1] = "00000122100000000000000122100000";
+      mat[2] = "000012FF2100000000000012FF210000";
+      mat[3] = "000012FFF21001111110012FFF210000";
+    }
+
+    if (expression === 'jealous') {
+      mat[14] = replaceRowSlice(mat[14], 9, "5111");
+      mat[14] = replaceRowSlice(mat[14], 19, "1115");
+    }
+
+    if (expression === 'flustered') {
+      mat[19] = replaceRowSlice(mat[19], 8, "7775");
+      mat[19] = replaceRowSlice(mat[19], 20, "5777");
+    }
+
+    if (blink) {
+      mat[15] = replaceRowSlice(mat[15], 9, "5555");
+      mat[15] = replaceRowSlice(mat[15], 19, "5555");
+      mat[16] = replaceRowSlice(mat[16], 9, "5555");
+      mat[16] = replaceRowSlice(mat[16], 19, "5555");
+      mat[17] = replaceRowSlice(mat[17], 9, "1111");
+      mat[17] = replaceRowSlice(mat[17], 19, "1111");
+    } else if (expression === 'bratty') {
+      mat[15] = replaceRowSlice(mat[15], 19, "5555");
+      mat[16] = replaceRowSlice(mat[16], 19, "1111");
+      mat[17] = replaceRowSlice(mat[17], 19, "5555");
+    }
+
+    if (mouthOpen) {
+      mat[20] = replaceRowSlice(mat[20], 14, "1E81");
+      mat[21] = replaceRowSlice(mat[21], 14, "5115");
+    }
+
+    const c = compilePortraitCanvas(mat);
+    portraitCache[key] = c;
+    return c;
+  }
+
+  function renderLuminaPortrait(expression = 'friendly', mouthOpen = false, blink = false) {
+    const key = `lumina_${expression}_${mouthOpen ? 1 : 0}_${blink ? 1 : 0}`;
+    if (portraitCache[key]) return portraitCache[key];
+
+    const mat = [...LUMINA_PORTRAIT_BASE];
+
+    if (blink) {
+      mat[13] = replaceRowSlice(mat[13], 10, "5555");
+      mat[13] = replaceRowSlice(mat[13], 18, "5555");
+      mat[14] = replaceRowSlice(mat[14], 10, "1111");
+      mat[14] = replaceRowSlice(mat[14], 18, "1111");
+    } else if (expression === 'teasing') {
+      mat[13] = replaceRowSlice(mat[13], 18, "5555");
+      mat[14] = replaceRowSlice(mat[14], 18, "1111");
+    }
+
+    if (mouthOpen) {
+      mat[17] = replaceRowSlice(mat[17], 14, "1EE1");
+      mat[18] = replaceRowSlice(mat[18], 14, "5115");
+    }
+
+    const c = compilePortraitCanvas(mat);
+    portraitCache[key] = c;
+    return c;
+  }
+
+  function renderNpcPortrait(type = 'elder') {
+    if (portraitCache[type]) return portraitCache[type];
+    let mat = ELDER_PORTRAIT_BASE;
+    if (type === 'guard') mat = GUARD_PORTRAIT_BASE;
+    else if (type === 'child') mat = CHILD_PORTRAIT_BASE;
+    const c = compilePortraitCanvas(mat);
+    portraitCache[type] = c;
+    return c;
+  }
+
+  // =========================================================================
+  // SECTION 6: Town of Aldenor Map Architecture (32x26 Tiles = 512x416 Pixels)
+  // =========================================================================
+  const MAP_W = 32;
+  const MAP_H = 26;
+  const TILE_SZ = 16;
+  const MAP_PX_W = MAP_W * TILE_SZ; // 512
+  const MAP_PX_H = MAP_H * TILE_SZ; // 416
+
+  const groundLayer = new Array(MAP_W * MAP_H).fill('cobble1');
+  const structLayer = new Array(MAP_W * MAP_H).fill(null);
+  const overheadLayer = new Array(MAP_W * MAP_H).fill(null);
+  const collisionMap = new Uint8Array(MAP_W * MAP_H).fill(0);
+
+  function setTile(x, y, ground, struct = null, overhead = null, solid = 0) {
+    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
+    const idx = y * MAP_W + x;
+    if (ground) groundLayer[idx] = ground;
+    if (struct) structLayer[idx] = struct;
+    if (overhead) overheadLayer[idx] = overhead;
+    if (solid) collisionMap[idx] = solid;
+  }
+
+  function buildAldenorMap() {
+    // 1. Base terrain: cobblestones across town
+    for (let y = 0; y < MAP_H; y++) {
+      for (let x = 0; x < MAP_W; x++) {
+        groundLayer[y * MAP_W + x] = ((x + y) % 3 === 0) ? 'cobble2' : 'cobble1';
+      }
+    }
+
+    // 2. Map Boundaries (outer stone walls & fences)
+    for (let x = 0; x < MAP_W; x++) {
+      setTile(x, 0, 'wallBase', 'wallMid', 'roofTile', 1);
+      setTile(x, 1, 'wallBase', 'wallMid', null, 1);
+      setTile(x, MAP_H - 1, 'wallBase', null, null, 1);
+    }
+    for (let y = 0; y < MAP_H; y++) {
+      setTile(0, y, 'wallBase', 'wallMid', null, 1);
+      setTile(MAP_W - 1, y, 'wallBase', 'wallMid', null, 1);
+    }
+
+    // 3. Central Fountain Plaza (x: 13..18, y: 11..15)
+    for (let py = 11; py <= 15; py++) {
+      for (let px = 13; px <= 18; px++) {
+        setTile(px, py, 'plaza', null, null, 0);
+      }
+    }
+    // 3x3 Fountain Basin at (14..16, 12..14)
+    for (let fy = 12; fy <= 14; fy++) {
+      for (let fx = 14; fx <= 16; fx++) {
+        setTile(fx, fy, 'waterRim', null, null, 1);
+      }
+    }
+    setTile(12, 13, 'cobble1', 'bench', null, 1);
+    setTile(19, 13, 'cobble1', 'bench', null, 1);
+    setTile(12, 11, 'cobble1', 'lampPost', null, 1);
+    setTile(19, 11, 'cobble1', 'lampPost', null, 1);
+    setTile(12, 15, 'cobble1', 'lampPost', null, 1);
+    setTile(19, 15, 'cobble1', 'lampPost', null, 1);
+
+    setTile(11, 12, 'flowers', null, null, 0);
+    setTile(11, 14, 'flowers', null, null, 0);
+    setTile(20, 12, 'flowers', null, null, 0);
+    setTile(20, 14, 'flowers', null, null, 0);
+
+    // 4. Northeast Grand Manor (x: 20..30, y: 2..10)
+    for (let my = 2; my <= 5; my++) {
+      for (let mx = 21; mx <= 29; mx++) {
+        if (my === 2) {
+          setTile(mx, my, 'wallBase', 'roofTile', 'roofTile', 1);
+        } else if (my === 3) {
+          setTile(mx, my, 'wallBase', 'wallMid', 'roofTile', 1);
+        } else if (my === 4) {
+          const isWin = (mx === 23 || mx === 27);
+          setTile(mx, my, 'wallBase', isWin ? 'stainedWindow' : 'wallBase', null, 1);
+        } else if (my === 5) {
+          const isDoor = (mx === 24 || mx === 25);
+          // Solid = 1 for all building walls AND closed doors
+          setTile(mx, my, 'carpet', isDoor ? 'oakDoor' : 'wallBase', null, 1);
+        }
+      }
+    }
+    // Courtyard paver floor & red carpet path
+    for (let cy = 6; cy <= 9; cy++) {
+      for (let cx = 20; cx <= 30; cx++) {
+        const isCarpet = (cx === 24 || cx === 25);
+        setTile(cx, cy, isCarpet ? 'carpet' : 'plaza', null, null, 0);
+      }
+    }
+    // Courtyard Wrought Iron Fence (row 10, cols 20..30)
+    for (let fx = 20; fx <= 30; fx++) {
+      if (fx === 24 || fx === 25) {
+        setTile(fx, 10, 'carpet', null, null, 0);
+      } else if (fx === 23 || fx === 26) {
+        setTile(fx, 10, 'plaza', 'gatePillar', null, 1);
+      } else {
+        setTile(fx, 10, 'plaza', 'ironFence', null, 1);
+      }
+    }
+    setTile(22, 9, 'plaza', 'lampPost', null, 1);
+    setTile(27, 9, 'plaza', 'lampPost', null, 1);
+
+    // 5. West Market & Apothecary (x: 2..11, y: 8..16)
+    for (let ay = 7; ay <= 9; ay++) {
+      for (let ax = 3; ax <= 8; ax++) {
+        if (ay === 7) setTile(ax, ay, 'wallBase', 'roofTile', 'roofTile', 1);
+        else if (ay === 8) setTile(ax, ay, 'wallBase', 'timberWall', 'roofTile', 1);
+        // Solid = 1 for all building walls AND closed doors
+        else setTile(ax, ay, 'cobble1', (ax === 6) ? 'oakDoor' : 'timberWall', null, 1);
+      }
+    }
+    setTile(5, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
+    setTile(6, 12, 'cobble1', null, 'awningBlue', 0);
+    setTile(7, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
+    setTile(8, 12, 'cobble1', 'lampPost', null, 1);
+
+    setTile(3, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setTile(4, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setTile(8, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setTile(9, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+
+    // 6. South Tavern & Harbor Gate (x: 4..28, y: 17..24)
+    for (let ty = 17; ty <= 20; ty++) {
+      for (let tx = 21; tx <= 27; tx++) {
+        if (ty === 17) setTile(tx, ty, 'wallBase', 'roofTile', 'roofTile', 1);
+        else if (ty === 18) setTile(tx, ty, 'wallBase', 'timberWall', 'roofTile', 1);
+        else if (ty === 19) setTile(tx, ty, 'wallBase', (tx === 23 || tx === 25) ? 'stainedWindow' : 'timberWall', null, 1);
+        // Solid = 1 for all building walls AND closed doors
+        else setTile(tx, ty, 'cobble1', (tx === 24) ? 'oakDoor' : 'timberWall', null, 1);
+      }
+    }
+    for (let gy = 24; gy <= 25; gy++) {
+      for (let gx = 14; gx <= 17; gx++) {
+        setTile(gx, gy, 'curb', null, null, 0);
+      }
+    }
+    setTile(13, 24, 'curb', 'gatePillar', null, 1);
+    setTile(18, 24, 'curb', 'gatePillar', null, 1);
+    setTile(13, 23, 'cobble1', 'lampPost', null, 1);
+    setTile(18, 23, 'cobble1', 'lampPost', null, 1);
+  }
+
+  // =========================================================================
+  // SECTION 7: Entity System, AI Patrols & Story Flags
+  // =========================================================================
+  const flags = {
+    talkedToElf: false,
+    talkedToNyah: false,
+    nyahRantedAboutElf: false,
+    nyahVisitedFirst: false,
+    elfVisitedFirst: false,
+    isTwilight: false
+  };
+
+  const hero = {
+    x: 240, y: 272,
+    w: 16, h: 16,
+    vx: 0, vy: 0,
+    speed: 72,
+    dir: 0, // 0: Down, 1: Up, 2: Left, 3: Right
+    animFrame: 0,
+    animTimer: 0,
+    isMoving: false
+  };
+
+  const npcs = [
+    {
+      id: 'nyah',
+      name: 'NYAH',
+      x: 384, y: 128, // Tile (24, 8) - Grand Manor courtyard steps
+      w: 16, h: 16,
+      dir: 0,
+      idleTimer: 0,
+      earTimer: 0,
+      isEngaged: false,
+      patrol: null
+    },
+    {
+      id: 'lumina',
+      name: 'LUMINA',
+      x: 96, y: 176, // Tile (6, 11) - West Market potion counter
+      w: 16, h: 16,
+      dir: 0,
+      idleTimer: 0,
+      isEngaged: false,
+      patrol: null
+    },
+    {
+      id: 'elder',
+      name: 'ELDER',
+      x: 224, y: 160,
+      w: 16, h: 16,
+      dir: 2,
+      speed: 24,
+      isEngaged: false,
+      patrol: { minX: 208, maxX: 272, axis: 'x', dir: 1, pauseTimer: 0 }
+    },
+    {
+      id: 'guard',
+      name: 'GUARD',
+      x: 224, y: 368,
+      w: 16, h: 16,
+      dir: 3,
+      speed: 32,
+      isEngaged: false,
+      patrol: { minX: 200, maxX: 280, axis: 'x', dir: 1, pauseTimer: 0 }
+    },
+    {
+      id: 'child',
+      name: 'CHILD',
+      x: 220, y: 246,
+      w: 16, h: 16,
+      dir: 0,
+      speed: 40,
+      isEngaged: false,
+      patrol: { minX: 210, maxX: 276, axis: 'x', dir: 1, pauseTimer: 0 }
+    }
+  ];
+
+  function checkCollision(px, py) {
+    const boxX = px + 3;
+    const boxY = py + 8;
+    const boxW = 10;
+    const boxH = 8;
+
+    const tLeft = Math.floor(boxX / TILE_SZ);
+    const tRight = Math.floor((boxX + boxW - 1) / TILE_SZ);
+    const tTop = Math.floor(boxY / TILE_SZ);
+    const tBottom = Math.floor((boxY + boxH - 1) / TILE_SZ);
+
+    if (tLeft < 0 || tRight >= MAP_W || tTop < 0 || tBottom >= MAP_H) return true;
+
+    for (let ty = tTop; ty <= tBottom; ty++) {
+      for (let tx = tLeft; tx <= tRight; tx++) {
+        if (collisionMap[ty * MAP_W + tx] === 1) return true;
+      }
+    }
+    return false;
+  }
+
+  function checkNpcHeroCollision(npc, heroX, heroY) {
+    const hx = heroX + 3, hy = heroY + 8, hw = 10, hh = 8;
+    const nx = npc.x + 3, ny = npc.y + 8, nw = 10, nh = 8;
+    return (hx < nx + nw && hx + hw > nx && hy < ny + nh && hy + hh > ny);
+  }
+
+  // =========================================================================
+  // SECTION 8: Dialogue System & 64x64 Cut-in Manager
+  // =========================================================================
+  const dialogueState = {
+    active: false,
+    npc: null,
+    lines: [],
+    lineIndex: 0,
+    charIndex: 0,
+    crawlTimer: 0,
+    isComplete: false,
+    cooldownTimer: 0,
+    mouthFlap: false,
+    eyeBlink: false,
+    blinkTimer: 0,
+    earTwitch: false,
+    earTimer: 0,
+    currentExpression: 'smug',
+    scrollOffset: 0,
+    isDoorInspection: false
+  };
+
+  function getDialogueTree(npcId) {
+    if (npcId === 'nyah') {
+      if (flags.talkedToElf && !flags.nyahRantedAboutElf) {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'jealous',
+            text: "WAIT A SECOND. stop right there Master. nyah smells moon-mint and starlight tonic. YOU WENT TO THE ELF APOTHECARY FIRST DIDN'T YOU????"
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'bratty',
+            text: "NO DO NOT MAKE THAT FACE AT NYAH!! you walked into town, bypassed the ENTIRE grand manor, ignored nyah waiting by the fountain steps, and went straight to miss blonde twin-braids for 'market gossip'?! what gossip?! nyah has WAY better gossip!! yesterday a seagull stole a guard's sandwich—WAIT NO NYAH IS STILL MAD AT YOU!!"
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'flustered',
+            text: "...hmph. fine. nyah is confiscating your cloak pin until you apologize properly. ...anyway. don't go back over there. stand closer to nyah where I can keep an eye on you, Master."
+          }
+        ];
+      }
+      if (!flags.talkedToNyah) {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'smug',
+            text: "oh look who FINALLY walked up the manor steps!! nyah knew you were going to come see me first, Master. obviously. the rest of Aldenor is boring anyway."
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'bratty',
+            text: "and before you even ASK—no, nyah is not sweeping the courtyard! the lord of the manor gave nyah this frilly apron and then nyah immediately claimed the sunny balcony and his best silver teacup. you're allowed to hold the teacup, by the way. because nyah is feeling generous."
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'jealous',
+            text: "wait... don't go wandering over to the west market stalls, okay?? there's some pointy-eared blonde herb seller over there who smiles at literally everyone and nyah has DECIDED she's suspicious. stay right here and pay attention to me instead!!"
+          }
+        ];
+      }
+      if (flags.isTwilight) {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'flustered',
+            text: "...oh. it's getting dark out, Master. the evening breeze from the harbor is actually kind of chilly..."
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'smug',
+            text: "which means you HAVE to let nyah hold onto your cloak. and don't try to pull away! look at the manor lanterns... aren't they pretty? nyah decided we're watching them together."
+          }
+        ];
+      } else {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'smug',
+            text: "still pacing around town, Master? you know, you can just sit here on the manor steps with nyah. nobody is going to stop you."
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'bratty',
+            text: "also, nyah has officially claimed your traveling cape as catgirl property. you can wear it while traveling, but it belongs to me now. that's the law of Aldenor!"
+          }
+        ];
+      }
+    } else if (npcId === 'lumina') {
+      if (!flags.talkedToNyah) {
+        return [
+          {
+            speaker: 'LUMINA',
+            expr: 'friendly',
+            text: "Welcome to Aldenor, traveler! I am Lumina. Need any sun-drop draughts or moon-flower extracts for your journey?"
+          },
+          {
+            speaker: 'LUMINA',
+            expr: 'teasing',
+            text: "Though... you might want to watch your step near the Northeast Grand Manor. There's a little catgirl maid up there who's been glaring daggers at my stall all morning. Tee-hee!"
+          }
+        ];
+      } else {
+        return [
+          {
+            speaker: 'LUMINA',
+            expr: 'friendly',
+            text: "Ah, back from the Grand Manor? You smell of high-grade jasmine tea and catnip."
+          },
+          {
+            speaker: 'LUMINA',
+            expr: 'teasing',
+            text: "Did the manor's 'fierce guardian' let you go without stealing all your shinies? She looks ready to pounce whenever you walk past!"
+          }
+        ];
+      }
+    } else if (npcId === 'elder') {
+      return [
+        {
+          speaker: 'ELDER',
+          expr: 'elder',
+          text: "Welcome to our peaceful port of Aldenor, young adventurer. The Grand Manor to the northeast has stood for three centuries, though recently they've hired quite a spirited feline resident..."
+        }
+      ];
+    } else if (npcId === 'guard') {
+      return [
+        {
+          speaker: 'GUARD',
+          expr: 'guard',
+          text: "Halt, citizen! The harbor road is peaceful today. Mind the fountain plaza, and report any suspicious seagull activity immediately."
+        }
+      ];
+    } else {
+      return [
+        {
+          speaker: 'CHILD',
+          expr: 'child',
+          text: "Whoa, red hair and shiny blue armor! Are you a legendary swordsman from across the sea?! Go see the catgirl at the manor, she showed me a silver coin yesterday!"
+        }
+      ];
+    }
+  }
+
+  function startDialogue(npc) {
+    if (dialogueState.cooldownTimer > 0) return;
+    const tree = getDialogueTree(npc.id);
+    if (!tree || tree.length === 0) return;
+
+    dialogueState.active = true;
+    dialogueState.npc = npc;
+    dialogueState.lines = tree;
+    dialogueState.lineIndex = 0;
+    dialogueState.charIndex = 0;
+    dialogueState.crawlTimer = 0;
+    dialogueState.isComplete = false;
+    dialogueState.mouthFlap = false;
+    dialogueState.eyeBlink = false;
+    dialogueState.blinkTimer = 0;
+    dialogueState.earTwitch = false;
+    dialogueState.earTimer = 0;
+    dialogueState.currentExpression = tree[0].expr;
+    dialogueState.scrollOffset = 0;
+    dialogueState.isDoorInspection = false;
+
+    npc.isEngaged = true;
+    const dx = hero.x - npc.x, dy = hero.y - npc.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      npc.dir = dx > 0 ? 3 : 2;
+    } else {
+      npc.dir = dy > 0 ? 0 : 1;
+    }
+
+    playUiConfirm();
+  }
+
+  function startCustomDialogue(speaker, expr, text, npcId, isDoor = false) {
+    if (dialogueState.cooldownTimer > 0) return;
+    dialogueState.active = true;
+    dialogueState.npc = { id: npcId, name: speaker, isEngaged: false };
+    dialogueState.lines = [{ speaker, expr, text }];
+    dialogueState.lineIndex = 0;
+    dialogueState.charIndex = 0;
+    dialogueState.crawlTimer = 0;
+    dialogueState.isComplete = false;
+    dialogueState.mouthFlap = false;
+    dialogueState.eyeBlink = false;
+    dialogueState.blinkTimer = 0;
+    dialogueState.earTwitch = false;
+    dialogueState.earTimer = 0;
+    dialogueState.currentExpression = expr;
+    dialogueState.scrollOffset = 0;
+    dialogueState.isDoorInspection = isDoor;
+    playUiConfirm();
+  }
+
+  function advanceDialogue() {
+    if (!dialogueState.active) return;
+
+    const currentLine = dialogueState.lines[dialogueState.lineIndex];
+    if (!dialogueState.isComplete) {
+      dialogueState.charIndex = currentLine.text.length;
+      dialogueState.isComplete = true;
+      dialogueState.mouthFlap = false;
+      const fullLines = wrapDialogueText(currentLine.text, 28);
+      if (fullLines.length > 6) {
+        dialogueState.scrollOffset = fullLines.length - 6;
+      }
+    } else {
+      dialogueState.lineIndex++;
+      if (dialogueState.lineIndex < dialogueState.lines.length) {
+        dialogueState.charIndex = 0;
+        dialogueState.crawlTimer = 0;
+        dialogueState.isComplete = false;
+        dialogueState.currentExpression = dialogueState.lines[dialogueState.lineIndex].expr;
+        dialogueState.mouthFlap = false;
+        dialogueState.scrollOffset = 0;
+      } else {
+        closeDialogue();
+      }
+    }
+  }
+
+  function closeDialogue() {
+    if (!dialogueState.active) return;
+    const npc = dialogueState.npc;
+
+    if (!dialogueState.isDoorInspection && npc) {
+      if (npc.id === 'nyah') {
+        flags.talkedToNyah = true;
+        flags.nyahRantedAboutElf = true;
+      } else if (npc.id === 'lumina') {
+        flags.talkedToElf = true;
+      }
+    }
+
+    dialogueState.active = false;
+    dialogueState.npc = null;
+    dialogueState.isDoorInspection = false;
+    dialogueState.cooldownTimer = 0.22;
+    if (npc && npc.isEngaged) npc.isEngaged = false;
+    playUiConfirm();
+  }
+
+  // =========================================================================
+  // SECTION 9: Particles, Camera & 3-Pass Renderer
+  // =========================================================================
+  const camera = { x: 0, y: 0 };
+  const particles = [];
+
+  function spawnChimneySmoke(px, py) {
+    if (Math.random() < 0.04) {
+      particles.push({
+        x: px + (Math.random() * 4 - 2),
+        y: py,
+        vx: (Math.random() - 0.5) * 6,
+        vy: -12 - Math.random() * 8,
+        life: 2.2,
+        maxLife: 2.2,
+        size: 2,
+        color: 'rgba(200, 200, 220, 0.45)'
+      });
+    }
+  }
+
+  function spawnFountainSparkle(px, py) {
+    if (Math.random() < 0.18) {
+      particles.push({
+        x: px + (Math.random() * 24 - 12),
+        y: py + (Math.random() * 12 - 6),
+        vx: (Math.random() - 0.5) * 14,
+        vy: -18 - Math.random() * 12,
+        life: 0.8,
+        maxLife: 0.8,
+        size: 1,
+        color: 'rgba(180, 230, 255, 0.8)'
+      });
+    }
+  }
+
+  function spawnTwilightMote() {
+    if (flags.isTwilight && Math.random() < 0.08) {
+      particles.push({
+        x: camera.x + Math.random() * 256,
+        y: camera.y + Math.random() * 224,
+        vx: (Math.random() - 0.5) * 10,
+        vy: (Math.random() - 0.5) * 8,
+        life: 3.5,
+        maxLife: 3.5,
+        size: 1.5,
+        color: 'rgba(255, 230, 120, 0.75)'
+      });
+    }
+  }
+
+  function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+      }
+    }
+  }
+
+  const LANTERNS = [
+    { x: 192 + 8, y: 176 + 6 },
+    { x: 304 + 8, y: 176 + 6 },
+    { x: 192 + 8, y: 240 + 6 },
+    { x: 304 + 8, y: 240 + 6 },
+    { x: 352 + 8, y: 144 + 6 },
+    { x: 432 + 8, y: 144 + 6 },
+    { x: 128 + 8, y: 192 + 6 },
+    { x: 208 + 8, y: 368 + 6 },
+    { x: 288 + 8, y: 368 + 6 }
+  ];
+
+  function renderFrame(ctx) {
+    const atlas = flags.isTwilight ? tileCanvasesTwilight : tileCanvasesMidday;
+    const camX = Math.round(camera.x);
+    const camY = Math.round(camera.y);
+
+    const startTx = Math.max(0, Math.floor(camX / TILE_SZ));
+    const endTx = Math.min(MAP_W - 1, Math.floor((camX + 256 + 15) / TILE_SZ));
+    const startTy = Math.max(0, Math.floor(camY / TILE_SZ));
+    const endTy = Math.min(MAP_H - 1, Math.floor((camY + 224 + 15) / TILE_SZ));
+
+    const fountainFrame = Math.floor(Date.now() / 120) % 4;
+
+    // PASS 1: Ground & Base Walls
+    for (let ty = startTy; ty <= endTy; ty++) {
+      for (let tx = startTx; tx <= endTx; tx++) {
+        const idx = ty * MAP_W + tx;
+        let gId = groundLayer[idx];
+        if (gId === 'waterRim') {
+          gId = 'waterRim' + fountainFrame;
+        }
+        const gTile = atlas[gId];
+        if (gTile) {
+          ctx.drawImage(gTile, tx * TILE_SZ - camX, ty * TILE_SZ - camY);
+        }
+        const sId = structLayer[idx];
+        if (sId && sId !== 'fountainSpire' && sId !== 'lampPost') {
+          const sTile = atlas[sId];
+          if (sTile) {
+            ctx.drawImage(sTile, tx * TILE_SZ - camX, ty * TILE_SZ - camY);
+          }
+        }
+      }
+    }
+
+    // PASS 2: Y-Sorted Dynamic Entities & Props
+    const renderList = [];
+
+    // Hero Adventurer
+    let heroSprKey = 'heroDown0';
+    if (hero.dir === 0) heroSprKey = 'heroDown' + (hero.isMoving ? hero.animFrame : 0);
+    else if (hero.dir === 1) heroSprKey = 'heroUp' + (hero.isMoving ? hero.animFrame : 0);
+    else if (hero.dir === 2) heroSprKey = 'heroLeft' + (hero.isMoving ? hero.animFrame : 0);
+    else if (hero.dir === 3) heroSprKey = 'heroRight' + (hero.isMoving ? hero.animFrame : 0);
+
+    renderList.push({
+      yBaseline: hero.y + 16,
+      draw: () => {
+        const spr = atlas[heroSprKey];
+        if (spr) ctx.drawImage(spr, Math.round(hero.x) - camX, Math.round(hero.y) - camY);
+      }
+    });
+
+    // NPCs
+    npcs.forEach(n => {
+      let sprKey = n.id + '0';
+      if (n.id === 'nyah') {
+        const isTwitching = n.earTimer > 3.0 && n.earTimer < 3.35;
+        sprKey = isTwitching ? 'nyahIdle1' : 'nyahIdle0';
+      } else if (n.id === 'elder') {
+        sprKey = (n.dir === 3) ? 'elderRight' : 'elder0';
+      } else if (n.id === 'guard') {
+        sprKey = (n.dir === 3) ? 'guardRight' : 'guard0';
+      } else if (n.id === 'child') {
+        sprKey = (n.dir === 3) ? 'childRight' : 'child0';
+      }
+
+      renderList.push({
+        yBaseline: n.y + 16,
+        draw: () => {
+          const spr = atlas[sprKey];
+          if (spr) ctx.drawImage(spr, Math.round(n.x) - camX, Math.round(n.y) - camY);
+        }
+      });
+    });
+
+    // Fountain Spire Mid-Prop
+    renderList.push({
+      yBaseline: 13 * TILE_SZ + 12,
+      draw: () => {
+        const spr = atlas['fountainSpire' + fountainFrame] || atlas['fountainSpire'];
+        if (spr) ctx.drawImage(spr, 15 * TILE_SZ - camX, 13 * TILE_SZ - camY);
+      }
+    });
+
+    // Lamp Posts
+    LANTERNS.forEach(l => {
+      renderList.push({
+        yBaseline: l.y + 10,
+        draw: () => {
+          const spr = atlas['lampPost'];
+          if (spr) ctx.drawImage(spr, l.x - 8 - camX, l.y - 6 - camY);
+        }
+      });
+    });
+
+    // Sort by baseline & draw
+    renderList.sort((a, b) => a.yBaseline - b.yBaseline);
+    renderList.forEach(item => item.draw());
+
+    // PASS 3: Overhead Layer & Particles
+    for (let ty = startTy; ty <= endTy; ty++) {
+      for (let tx = startTx; tx <= endTx; tx++) {
+        const idx = ty * MAP_W + tx;
+        const oId = overheadLayer[idx];
+        if (oId) {
+          const oTile = atlas[oId];
+          if (oTile) {
+            ctx.drawImage(oTile, tx * TILE_SZ - camX, ty * TILE_SZ - camY);
+          }
+        }
+      }
+    }
+
+    // Particles (chimney smoke, fountain water sparkles, twilight motes)
+    particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x - camX), Math.round(p.y - camY), p.size, p.size);
+    });
+
+    // Twilight Radial Lantern Light Cones
+    if (flags.isTwilight) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(10, 8, 34, 0.45)';
+      ctx.fillRect(0, 0, 256, 224);
+
+      ctx.globalCompositeOperation = 'lighter';
+      LANTERNS.forEach(l => {
+        const lx = Math.round(l.x - camX);
+        const ly = Math.round(l.y - camY);
+        if (lx >= -40 && lx <= 296 && ly >= -40 && ly <= 264) {
+          const grad = ctx.createRadialGradient(lx, ly, 2, lx, ly, 38);
+          grad.addColorStop(0, 'rgba(255, 230, 140, 0.65)');
+          grad.addColorStop(0.35, 'rgba(255, 180, 80, 0.35)');
+          grad.addColorStop(1, 'rgba(255, 140, 40, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(lx, ly, 38, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      ctx.restore();
+    }
+
+    // PASS 4: Dialogue Frame & 64x64 Cut-in
+    if (dialogueState.active) {
+      renderDialogueBox(ctx);
+    }
+  }
+
+  function renderDialogueBox(ctx) {
+    const bx = 4, by = 144, bw = 248, bh = 76;
+
+    ctx.fillStyle = 'rgba(14, 18, 36, 0.96)';
+    ctx.fillRect(bx, by, bw, bh);
+
+    const C_GOLD_HI = vceColor(7, 6, 1);
+    const C_GOLD_MID = vceColor(6, 5, 0);
+    const C_GOLD_SHD = vceColor(4, 3, 0);
+
+    ctx.fillStyle = C_GOLD_HI;
+    ctx.fillRect(bx, by, bw, 2);
+    ctx.fillRect(bx, by, 2, bh);
+    ctx.fillStyle = C_GOLD_SHD;
+    ctx.fillRect(bx, by + bh - 2, bw, 2);
+    ctx.fillRect(bx + bw - 2, by, 2, bh);
+
+    ctx.fillStyle = C_GOLD_MID;
+    ctx.fillRect(bx + 2, by + 2, bw - 4, 1);
+    ctx.fillRect(bx + 2, by + bh - 3, bw - 4, 1);
+    ctx.fillRect(bx + 2, by + 2, 1, bh - 4);
+    ctx.fillRect(bx + bw - 3, by + 2, 1, bh - 4);
+
+    [[bx+3, by+3], [bx+bw-6, by+3], [bx+3, by+bh-6], [bx+bw-6, by+bh-6]].forEach(([rx, ry]) => {
+      ctx.fillStyle = C_GOLD_HI; ctx.fillRect(rx, ry, 3, 3);
+      ctx.fillStyle = C_GOLD_SHD; ctx.fillRect(rx+1, ry+1, 1, 1);
+    });
+
+    const px = bx + 5, py = by + 6;
+    ctx.fillStyle = '#080812';
+    ctx.fillRect(px - 1, py - 1, 66, 66);
+    ctx.strokeStyle = C_GOLD_MID;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px - 0.5, py - 0.5, 65, 65);
+
+    let portraitCanvas = null;
+    if (dialogueState.npc.id === 'nyah') {
+      portraitCanvas = renderNyahPortrait(
+        dialogueState.currentExpression,
+        dialogueState.mouthFlap,
+        dialogueState.eyeBlink,
+        dialogueState.earTwitch
+      );
+    } else if (dialogueState.npc.id === 'lumina') {
+      portraitCanvas = renderLuminaPortrait(
+        dialogueState.currentExpression,
+        dialogueState.mouthFlap,
+        dialogueState.eyeBlink
+      );
+    } else {
+      portraitCanvas = renderNpcPortrait(dialogueState.npc.id);
+    }
+
+    if (portraitCanvas) {
+      ctx.drawImage(portraitCanvas, px, py);
+    }
+
+    const nameX = px + 68, nameY = by + 5;
+    drawPixelText(ctx, `[${dialogueState.npc.name}]`, nameX, nameY, C_GOLD_HI, OUTLINE_COLOR);
+
+    const curLine = dialogueState.lines[dialogueState.lineIndex];
+    if (curLine) {
+      const displayedText = curLine.text.substring(0, dialogueState.charIndex);
+      const wrappedLines = wrapDialogueText(displayedText, 28);
+
+      const maxVisible = 6;
+      const scroll = Math.max(0, Math.min(dialogueState.scrollOffset, Math.max(0, wrappedLines.length - maxVisible)));
+      const visibleLines = wrappedLines.slice(scroll, scroll + maxVisible);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(nameX, by + 14, bw - (nameX - bx) - 4, bh - 18);
+      ctx.clip();
+
+      let textY = by + 15;
+      visibleLines.forEach(l => {
+        drawPixelText(ctx, l, nameX, textY, '#ffffff', OUTLINE_COLOR);
+        textY += 9;
+      });
+      ctx.restore();
+
+      if (scroll > 0) {
+        drawGlyph(ctx, '▲', bx + bw - 14, by + 5, C_GOLD_HI);
+      }
+
+      if (dialogueState.isComplete) {
+        if (Math.floor(Date.now() / 320) % 2 === 0) {
+          drawGlyph(ctx, '▼', bx + bw - 14, by + bh - 11, C_GOLD_HI);
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // SECTION 10: Input Handling & Game Loop
+  // =========================================================================
+  const keysDown = {};
+  const justPressed = {};
+
+  function consumeJustPressed(key) {
+    if (justPressed[key]) {
+      justPressed[key] = false;
+      return true;
+    }
+    return false;
+  }
+
+  window.addEventListener('keydown', e => {
+    const k = e.code;
+    if (!keysDown[k]) justPressed[k] = true;
+    keysDown[k] = true;
+
+    if (k === 'KeyT') toggleDayTwilight();
+    if (k === 'KeyC') toggleCrt();
+    if (k === 'KeyM') toggleMute();
+  });
+
+  window.addEventListener('keyup', e => {
+    keysDown[e.code] = false;
+  });
+
+  document.querySelectorAll('.vpad-btn').forEach(btn => {
+    const k = btn.getAttribute('data-key');
+    const start = (e) => {
+      e.preventDefault();
+      unlockAudio();
+      if (!keysDown[k]) justPressed[k] = true;
+      keysDown[k] = true;
+    };
+    const end = (e) => {
+      e.preventDefault();
+      keysDown[k] = false;
+    };
+    btn.addEventListener('pointerdown', start);
+    btn.addEventListener('pointerup', end);
+    btn.addEventListener('pointerleave', end);
+  });
+
+  document.querySelectorAll('.vact-btn').forEach(btn => {
+    const trigger = (e) => {
+      e.preventDefault();
+      unlockAudio();
+      justPressed['Space'] = true;
+      justPressed['KeyE'] = true;
+    };
+    btn.addEventListener('pointerdown', trigger);
+  });
+
+  function toggleDayTwilight() {
+    flags.isTwilight = !flags.isTwilight;
+    const lbl = document.getElementById('lblDayNight');
+    if (lbl) lbl.textContent = flags.isTwilight ? 'Twilight' : 'Midday';
+    playUiConfirm();
+  }
+
+  function toggleCrt() {
+    const overlay = document.getElementById('crtOverlay');
+    if (overlay) overlay.classList.toggle('crt-active');
+    playUiConfirm();
+  }
+
+  function toggleMute() {
+    isMuted = !isMuted;
+    if (audioCtx && masterGain) {
+      masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.35, audioCtx.currentTime, 0.02);
+    }
+    const lbl = document.getElementById('lblMute');
+    if (lbl) lbl.textContent = isMuted ? 'BGM OFF' : 'BGM ON';
+    playUiConfirm();
+  }
+
+  document.getElementById('btnDayNight')?.addEventListener('click', toggleDayTwilight);
+  document.getElementById('btnCrt')?.addEventListener('click', toggleCrt);
+  document.getElementById('btnMute')?.addEventListener('click', toggleMute);
+
+  document.getElementById('screenWrapper')?.addEventListener('pointerdown', () => {
+    if (dialogueState.active) {
+      unlockAudio();
+      advanceDialogue();
+    }
+  });
+
+  function update(dt) {
+    if (dialogueState.cooldownTimer > 0) {
+      dialogueState.cooldownTimer -= dt;
+    }
+
+    if (dialogueState.active) {
+      if (consumeJustPressed('ArrowUp') || consumeJustPressed('KeyW')) {
+        if (dialogueState.scrollOffset > 0) dialogueState.scrollOffset--;
+      }
+      if (consumeJustPressed('ArrowDown') || consumeJustPressed('KeyS')) {
+        const fullLines = wrapDialogueText(dialogueState.lines[dialogueState.lineIndex].text, 28);
+        if (dialogueState.scrollOffset < fullLines.length - 6) dialogueState.scrollOffset++;
+      }
+
+      const curLine = dialogueState.lines[dialogueState.lineIndex];
+      if (!dialogueState.isComplete) {
+        dialogueState.crawlTimer += dt;
+        if (dialogueState.crawlTimer >= 0.035) {
+          dialogueState.crawlTimer = 0;
+          dialogueState.charIndex++;
+          const ch = curLine.text[dialogueState.charIndex - 1];
+          if (ch && ch !== ' ') {
+            const freq = (dialogueState.npc.id === 'nyah') ? 1580 : (dialogueState.npc.id === 'lumina') ? 1200 : 700;
+            playSfxBlip(freq);
+            dialogueState.mouthFlap = (dialogueState.charIndex % 3 !== 0);
+          }
+          if (dialogueState.charIndex >= curLine.text.length) {
+            dialogueState.isComplete = true;
+            dialogueState.mouthFlap = false;
+          }
+          const currentWrapped = wrapDialogueText(curLine.text.substring(0, dialogueState.charIndex), 28);
+          if (currentWrapped.length > 6) {
+            dialogueState.scrollOffset = currentWrapped.length - 6;
+          }
+        }
+      }
+
+      dialogueState.blinkTimer += dt;
+      if (dialogueState.blinkTimer > 2.8) {
+        dialogueState.eyeBlink = (dialogueState.blinkTimer < 3.0);
+        if (dialogueState.blinkTimer > 3.05) dialogueState.blinkTimer = 0;
+      }
+      dialogueState.earTimer += dt;
+      if (dialogueState.earTimer > 3.2) {
+        dialogueState.earTwitch = (dialogueState.earTimer < 3.45);
+        if (dialogueState.earTimer > 3.5) dialogueState.earTimer = 0;
+      }
+
+      if (consumeJustPressed('Space') || consumeJustPressed('KeyE') || consumeJustPressed('Enter')) {
+        advanceDialogue();
+      }
+      return;
+    }
+
+    // Hero Movement
+    let dx = 0, dy = 0;
+    if (keysDown['ArrowUp'] || keysDown['KeyW']) dy -= 1;
+    if (keysDown['ArrowDown'] || keysDown['KeyS']) dy += 1;
+    if (keysDown['ArrowLeft'] || keysDown['KeyA']) dx -= 1;
+    if (keysDown['ArrowRight'] || keysDown['KeyD']) dx += 1;
+
+    hero.isMoving = (dx !== 0 || dy !== 0);
+
+    if (hero.isMoving) {
+      if (dy > 0) hero.dir = 0;
+      else if (dy < 0) hero.dir = 1;
+      else if (dx < 0) hero.dir = 2;
+      else if (dx > 0) hero.dir = 3;
+
+      const mag = Math.hypot(dx, dy);
+      const moveDist = hero.speed * dt;
+      const stepX = (dx / mag) * moveDist;
+      const stepY = (dy / mag) * moveDist;
+
+      if (!checkCollision(hero.x + stepX, hero.y)) {
+        hero.x += stepX;
+      }
+      if (!checkCollision(hero.x, hero.y + stepY)) {
+        hero.y += stepY;
+      }
+
+      hero.animTimer += dt;
+      if (hero.animTimer >= 0.14) {
+        hero.animTimer = 0;
+        hero.animFrame = (hero.animFrame + 1) % 3;
+      }
+    } else {
+      hero.animFrame = 0;
+      hero.animTimer = 0;
+    }
+
+    hero.x = Math.max(16, Math.min(MAP_PX_W - 32, hero.x));
+    hero.y = Math.max(16, Math.min(MAP_PX_H - 32, hero.y));
+
+    // NPC Patrols & AI
+    npcs.forEach(n => {
+      if (n.id === 'nyah') {
+        n.earTimer = (n.earTimer || 0) + dt;
+        if (n.earTimer > 3.0) {
+          if (n.earTimer > 3.35) n.earTimer = 0;
+        }
+      }
+      if (n.isEngaged) return;
+
+      if (n.patrol) {
+        const p = n.patrol;
+        if (p.pauseTimer > 0) {
+          p.pauseTimer -= dt;
+        } else {
+          n.x += n.speed * p.dir * dt;
+          n.dir = p.dir > 0 ? 3 : 2;
+
+          if (n.x >= p.maxX) {
+            n.x = p.maxX;
+            p.dir = -1;
+            p.pauseTimer = 1.2;
+          } else if (n.x <= p.minX) {
+            n.x = p.minX;
+            p.dir = 1;
+            p.pauseTimer = 1.2;
+          }
+
+          if (checkNpcHeroCollision(n, hero.x, hero.y)) {
+            n.x -= n.speed * p.dir * dt;
+            p.dir *= -1;
+            p.pauseTimer = 0.8;
+          }
+        }
+      }
+    });
+
+    // Interaction Trigger (Space / E)
+    if (consumeJustPressed('Space') || consumeJustPressed('KeyE') || consumeJustPressed('Enter')) {
+      let targetX = hero.x, targetY = hero.y;
+      if (hero.dir === 0) targetY += 16;
+      else if (hero.dir === 1) targetY -= 16;
+      else if (hero.dir === 2) targetX -= 16;
+      else if (hero.dir === 3) targetX += 16;
+
+      let foundNpc = false;
+      for (const n of npcs) {
+        const dist = Math.hypot(n.x - targetX, n.y - targetY);
+        if (dist <= 22) {
+          startDialogue(n);
+          foundNpc = true;
+          break;
+        }
+      }
+
+      // Check Door Inspection if no NPC in range
+      if (!foundNpc && dialogueState.cooldownTimer <= 0) {
+        let faceX = hero.x + 8, faceY = hero.y + 12;
+        if (hero.dir === 0) faceY += 16;
+        else if (hero.dir === 1) faceY -= 16;
+        else if (hero.dir === 2) faceX -= 16;
+        else if (hero.dir === 3) faceX += 16;
+
+        const tileX = Math.floor(faceX / TILE_SZ);
+        const tileY = Math.floor(faceY / TILE_SZ);
+
+        if (tileY === 5 && (tileX === 24 || tileX === 25)) {
+          startCustomDialogue(
+            'NYAH',
+            'bratty',
+            "HEY!! don't go rattling the manor doors, Master! the lord is out and nyah is right here on the steps anyway!!",
+            'nyah',
+            true
+          );
+        } else if (tileY === 9 && tileX === 6) {
+          startCustomDialogue(
+            'LUMINA',
+            'friendly',
+            "My indoor workshop is locked while I run the market counter over here!",
+            'lumina',
+            true
+          );
+        } else if (tileY === 20 && tileX === 24) {
+          startCustomDialogue(
+            'GUARD',
+            'guard',
+            "The Harbor Tavern doesn't open its kegs until late night, traveler.",
+            'guard',
+            true
+          );
+        }
+      }
+    }
+
+    // Particles & Spawners
+    spawnChimneySmoke(24 * TILE_SZ, 3 * TILE_SZ);
+    spawnChimneySmoke(6 * TILE_SZ, 7 * TILE_SZ);
+    spawnFountainSparkle(248, 204);
+    spawnTwilightMote();
+    updateParticles(dt);
+
+    // Camera Smooth Lerp & Integer Snapping
+    const targetCamX = hero.x + 8 - 128;
+    const targetCamY = hero.y + 8 - 112;
+    camera.x += (targetCamX - camera.x) * 0.12;
+    camera.y += (targetCamY - camera.y) * 0.12;
+    camera.x = Math.max(0, Math.min(MAP_PX_W - 256, camera.x));
+    camera.y = Math.max(0, Math.min(MAP_PX_H - 224, camera.y));
+
+    // Spatial Fountain Volume
+    updateSpatialFountain(hero.x, hero.y);
+  }
+
+  // HUD VU Meter Display Update
+  function updateVuMeterHud() {
+    const barsContainer = document.getElementById('vuBars');
+    if (!barsContainer) return;
+    for (let ch = 0; ch < 7; ch++) {
+      const bar = document.getElementById(`vuBar${ch}`);
+      if (!bar) continue;
+      const val = Math.min(1, Math.max(0, vuMeters[ch]));
+      vuMeters[ch] *= 0.88;
+
+      bar.innerHTML = '';
+      const totalSegs = 6;
+      const litSegs = Math.round(val * totalSegs);
+      for (let s = 0; s < totalSegs; s++) {
+        const seg = document.createElement('div');
+        seg.className = 'vu-segment';
+        if (s < litSegs) {
+          if (s >= 5) seg.className += ' lit-red';
+          else if (s >= 3) seg.className += ' lit-yellow';
+          else seg.className += ' lit-green';
+        }
+        bar.appendChild(seg);
+      }
+    }
+  }
+
+  // =========================================================================
+  // SECTION 11: Main Loop & Bootstrap
+  // =========================================================================
+  const gameCanvas = document.getElementById('gameCanvas');
+  const gameCtx = gameCanvas.getContext('2d');
+  gameCtx.imageSmoothingEnabled = false;
+
+  let lastTime = performance.now();
+
+  function gameLoop(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+
+    update(dt);
+    renderFrame(gameCtx);
+    updateVuMeterHud();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  window.YsEngine = {
+    flags,
+    hero,
+    npcs,
+    dialogueState,
+    getAudioCtx: () => audioCtx,
+    isMuted: () => isMuted,
+    toggleDayTwilight,
+    toggleCrt,
+    toggleMute,
+    startDialogue,
+    advanceDialogue,
+    closeDialogue,
+    unlockAudio,
+    resizeViewport
+  };
+  window.flags = flags;
+  window.hero = hero;
+  window.dialogueState = dialogueState;
+  window.npcs = npcs;
+  window.unlockAudio = unlockAudio;
+  window.collisionMap = collisionMap;
+
+  buildTileAtlases();
+  buildAldenorMap();
+  resizeViewport();
+  requestAnimationFrame(gameLoop);
+
+})();
+</script>
+</body>
