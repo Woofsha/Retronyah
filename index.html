@@ -72,6 +72,17 @@
       align-items: center;
       gap: 6px;
     }
+    .hud-item-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #141424;
+      border: 1px solid #48486c;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .hud-btn {
       background: #202036;
       color: #d8d8ee;
@@ -321,6 +332,9 @@
       <span>ALDENOR TOWN</span>
     </div>
     <div class="hud-buttons">
+      <div id="hudItemBadge" class="hud-item-badge" title="Equipped Key Item">
+        <span style="color:#f7d24a;font-weight:700;">ITEM:</span> <span id="lblItemName" style="color:#fff;font-weight:600;">NONE</span>
+      </div>
       <button id="btnDayNight" class="hud-btn" title="Toggle Day/Twilight (T)">
         <span>[T]</span> <span id="lblDayNight">Midday</span>
       </button>
@@ -524,12 +538,43 @@
 
   function updateSpatialFountain(heroX, heroY) {
     if (!fountainGain || !audioCtx) return;
-    const FOUNTAIN_PX_X = 248, FOUNTAIN_PX_Y = 208;
-    const dist = Math.hypot(heroX - FOUNTAIN_PX_X, heroY - FOUNTAIN_PX_Y);
-    const maxDist = 200;
-    const targetVol = isMuted ? 0 : Math.max(0, 1 - dist / maxDist) * 0.22;
-    fountainGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
-    vuMeters[6] = Math.max(vuMeters[6] * 0.88, targetVol / 0.22);
+    const curMap = (typeof getActiveMap === 'function') ? getActiveMap() : null;
+    if (!curMap || curMap.id === 'aldenor_exterior') {
+      const FOUNTAIN_PX_X = 248, FOUNTAIN_PX_Y = 208;
+      const dist = Math.hypot(heroX - FOUNTAIN_PX_X, heroY - FOUNTAIN_PX_Y);
+      const maxDist = 200;
+      const targetVol = isMuted ? 0 : Math.max(0, 1 - dist / maxDist) * 0.22;
+      fountainGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
+      vuMeters[6] = Math.max(vuMeters[6] * 0.88, targetVol / 0.22);
+    } else if (curMap.hearthPos) {
+      const dist = Math.hypot(heroX - curMap.hearthPos.x, heroY - curMap.hearthPos.y);
+      const maxDist = 180;
+      const targetVol = isMuted ? 0 : Math.max(0, 1 - dist / maxDist) * 0.26;
+      fountainGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.08);
+      vuMeters[6] = Math.max(vuMeters[6] * 0.88, targetVol / 0.26);
+    } else {
+      fountainGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      vuMeters[6] *= 0.88;
+    }
+  }
+
+  function playTransitionChime(isEntering = true) {
+    if (!audioCtx || isMuted) return;
+    const notes = isEntering
+      ? [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6]
+      : [NOTE.C6, NOTE.G5, NOTE.E5, NOTE.C5];
+    const now = audioCtx.currentTime;
+    notes.forEach((freq, idx) => {
+      scheduleNote(waveArp, freq, now + idx * 0.045, 0.04, 0.12, 3);
+    });
+  }
+
+  function playSfxSquawk() {
+    if (!audioCtx || isMuted) return;
+    const now = audioCtx.currentTime;
+    scheduleNote(waveLead, 1850, now, 0.05, 0.18, 0);
+    scheduleNote(waveLead, 2400, now + 0.04, 0.08, 0.22, 0);
+    scheduleNote(waveLead, 1600, now + 0.10, 0.06, 0.14, 0);
   }
 
   function playSfxBlip(freq, duration = 0.038) {
@@ -570,22 +615,34 @@
     vuMeters[5] = 1.0;
   }
 
-  // Authentic Falcom-Style Peaceful Town BGM (Ys / Popful Mail) - 98 BPM
+  // Authentic Falcom-Style Town BGMs (Ys / Popful Mail) - 98 BPM
   const NOTE = {
-    C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
-    C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
-    C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77,
+    C2: 65.41, D2: 73.42, E2: 82.41, F2: 87.31, G2: 98.00, A2: 110.00, B2: 123.47,
+    C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, Gs3: 207.65, 'G#3': 207.65, A3: 220.00, B3: 246.94,
+    C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, Gs4: 415.30, 'G#4': 415.30, A4: 440.00, B4: 493.88,
+    C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, Gs5: 830.61, 'G#5': 830.61, A5: 880.00, B5: 987.77,
     C6: 1046.50, D6: 1174.66, E6: 1318.51
   };
 
-  const scoreCh1 = new Array(256).fill(0);
-  const scoreCh2 = new Array(256).fill(0);
-  const scoreCh3 = new Array(256).fill(0);
-  const scoreCh4 = new Array(256).fill(0);
-  const scoreCh5 = new Array(256).fill(0);
+  const scoreMidday = {
+    ch1: new Array(256).fill(0),
+    ch2: new Array(256).fill(0),
+    ch3: new Array(256).fill(0),
+    ch4: new Array(256).fill(0),
+    ch5: new Array(256).fill(0)
+  };
 
-  function buildBgmScore() {
-    const melody = [
+  const scoreTwilight = {
+    ch1: new Array(256).fill(0),
+    ch2: new Array(256).fill(0),
+    ch3: new Array(256).fill(0),
+    ch4: new Array(256).fill(0),
+    ch5: new Array(256).fill(0)
+  };
+
+  function buildBgmScores() {
+    // --- Midday Track (98 BPM, C Major Falcom Ys town melody) ---
+    const mMelody = [
       NOTE.E5, 0, 0, 0, NOTE.G5, 0, NOTE.A5, 0, NOTE.G5, 0, 0, 0, NOTE.E5, 0, 0, 0,
       NOTE.F5, 0, 0, 0, NOTE.A5, 0, NOTE.C6, 0, NOTE.B5, 0, NOTE.A5, 0, NOTE.G5, 0, 0, 0,
       NOTE.E5, 0, 0, 0, NOTE.G5, 0, NOTE.E5, 0, NOTE.D5, 0, 0, 0, NOTE.C5, 0, 0, 0,
@@ -596,7 +653,7 @@
       NOTE.C5, 0, 0, 0, 0, 0, 0, 0, NOTE.C5, 0, 0, 0, 0, 0, 0, 0
     ];
 
-    const harm = [
+    const mHarm = [
       NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0, NOTE.C5, 0, 0, 0,
       NOTE.C5, 0, 0, 0, NOTE.F5, 0, NOTE.A5, 0, NOTE.G5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0,
       NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.C5, 0, NOTE.B4, 0, 0, 0, NOTE.A4, 0, 0, 0,
@@ -607,7 +664,7 @@
       NOTE.G4, 0, 0, 0, 0, 0, 0, 0, NOTE.E4, 0, 0, 0, 0, 0, 0, 0
     ];
 
-    const bassline = [
+    const mBass = [
       NOTE.C3, 0, 0, 0, NOTE.G3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.G3, 0, 0, 0,
       NOTE.F3, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.A3, 0, 0, 0, NOTE.C4, 0, 0, 0,
       NOTE.A3, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.E3, 0, 0, 0,
@@ -618,7 +675,7 @@
       NOTE.C3, 0, 0, 0, NOTE.G3, 0, 0, 0, NOTE.C3, 0, 0, 0, 0, 0, 0, 0
     ];
 
-    const arp = [
+    const mArp = [
       0, 0, NOTE.E4, 0, NOTE.G4, 0, NOTE.C5, 0, 0, 0, NOTE.G4, 0, NOTE.E4, 0, 0, 0,
       0, 0, NOTE.F4, 0, NOTE.A4, 0, NOTE.C5, 0, 0, 0, NOTE.A4, 0, NOTE.F4, 0, 0, 0,
       0, 0, NOTE.E4, 0, NOTE.A4, 0, NOTE.C5, 0, 0, 0, NOTE.A4, 0, NOTE.E4, 0, 0, 0,
@@ -630,15 +687,68 @@
     ];
 
     for (let i = 0; i < 256; i++) {
-      scoreCh1[i] = melody[i % 128];
-      scoreCh2[i] = harm[i % 128];
-      scoreCh3[i] = bassline[i % 128];
-      scoreCh4[i] = arp[i % 128];
-
+      scoreMidday.ch1[i] = mMelody[i % 128];
+      scoreMidday.ch2[i] = mHarm[i % 128];
+      scoreMidday.ch3[i] = mBass[i % 128];
+      scoreMidday.ch4[i] = mArp[i % 128];
       const s = i % 16;
-      if (s === 0) scoreCh5[i] = 1; // Gentle kick on 1
-      else if (s === 8) scoreCh5[i] = 2; // Soft snare on 3
-      else if (s === 4 || s === 12) scoreCh5[i] = 3; // Light hi-hat on 2 & 4
+      if (s === 0) scoreMidday.ch5[i] = 1;
+      else if (s === 8) scoreMidday.ch5[i] = 2;
+      else if (s === 4 || s === 12) scoreMidday.ch5[i] = 3;
+    }
+
+    // --- Twilight Track (98 BPM, A minor / Fmaj7 Nocturnal Nostalgia) ---
+    const tMelody = [
+      NOTE.E5, 0, 0, 0, NOTE.C5, 0, 0, 0, NOTE.B4, 0, NOTE.C5, 0, NOTE.A4, 0, 0, 0,
+      NOTE.A4, 0, 0, 0, NOTE.C5, 0, NOTE.E5, 0, NOTE.G5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0,
+      NOTE.D5, 0, 0, 0, NOTE.F5, 0, NOTE.A5, 0, NOTE.G5, 0, 0, 0, NOTE.F5, 0, 0, 0,
+      NOTE.E5, 0, 0, 0, NOTE.B4, 0, 0, 0, NOTE.Gs4, 0, 0, 0, NOTE.E4, 0, 0, 0,
+      NOTE.A4, 0, 0, 0, NOTE.C5, 0, NOTE.E5, 0, NOTE.A5, 0, 0, 0, NOTE.B5, 0, 0, 0,
+      NOTE.C6, 0, 0, 0, NOTE.B5, 0, NOTE.A5, 0, NOTE.E5, 0, 0, 0, NOTE.F5, 0, 0, 0,
+      NOTE.D5, 0, 0, 0, NOTE.F5, 0, NOTE.A5, 0, NOTE.B5, 0, 0, 0, NOTE.G5, 0, 0, 0,
+      NOTE.A5, 0, 0, 0, 0, 0, 0, 0, NOTE.A4, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const tHarm = [
+      NOTE.C5, 0, 0, 0, NOTE.A4, 0, 0, 0, NOTE.G4, 0, NOTE.A4, 0, NOTE.E4, 0, 0, 0,
+      NOTE.F4, 0, 0, 0, NOTE.A4, 0, NOTE.C5, 0, NOTE.E5, 0, NOTE.D5, 0, NOTE.C5, 0, 0, 0,
+      NOTE.A4, 0, 0, 0, NOTE.D5, 0, NOTE.F5, 0, NOTE.E5, 0, 0, 0, NOTE.D5, 0, 0, 0,
+      NOTE.B4, 0, 0, 0, NOTE.Gs4, 0, 0, 0, NOTE.E4, 0, 0, 0, NOTE.B3, 0, 0, 0,
+      NOTE.C5, 0, 0, 0, NOTE.E5, 0, NOTE.A5, 0, NOTE.E5, 0, 0, 0, NOTE.G5, 0, 0, 0,
+      NOTE.A5, 0, 0, 0, NOTE.G5, 0, NOTE.F5, 0, NOTE.C5, 0, 0, 0, NOTE.D5, 0, 0, 0,
+      NOTE.B4, 0, 0, 0, NOTE.D5, 0, NOTE.F5, 0, NOTE.G5, 0, 0, 0, NOTE.E5, 0, 0, 0,
+      NOTE.E5, 0, 0, 0, 0, 0, 0, 0, NOTE.C4, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const tBass = [
+      NOTE.A2, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.A2, 0, 0, 0, NOTE.E3, 0, 0, 0,
+      NOTE.F2, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.F2, 0, 0, 0, NOTE.C3, 0, 0, 0,
+      NOTE.D2, 0, 0, 0, NOTE.A2, 0, 0, 0, NOTE.D2, 0, 0, 0, NOTE.A2, 0, 0, 0,
+      NOTE.E2, 0, 0, 0, NOTE.B2, 0, 0, 0, NOTE.E2, 0, 0, 0, NOTE.B2, 0, 0, 0,
+      NOTE.A2, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.A2, 0, 0, 0, NOTE.E3, 0, 0, 0,
+      NOTE.F2, 0, 0, 0, NOTE.C3, 0, 0, 0, NOTE.A2, 0, 0, 0, NOTE.C3, 0, 0, 0,
+      NOTE.D2, 0, 0, 0, NOTE.A2, 0, 0, 0, NOTE.G2, 0, 0, 0, NOTE.D3, 0, 0, 0,
+      NOTE.A2, 0, 0, 0, NOTE.E3, 0, 0, 0, NOTE.A2, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    const tArp = [
+      NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.C5, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, 0,
+      NOTE.F3, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.F3, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.F3, 0,
+      NOTE.D3, NOTE.F3, NOTE.A3, NOTE.C4, NOTE.A3, NOTE.F3, NOTE.D3, NOTE.F3, NOTE.A3, NOTE.C4, NOTE.F4, NOTE.C4, NOTE.A3, NOTE.F3, NOTE.D3, 0,
+      NOTE.E3, NOTE.Gs3, NOTE.B3, NOTE.E4, NOTE.B3, NOTE.Gs3, NOTE.E3, NOTE.Gs3, NOTE.B3, NOTE.E4, NOTE.Gs4, NOTE.E4, NOTE.B3, NOTE.Gs3, NOTE.E3, 0,
+      NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.C5, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, 0,
+      NOTE.F3, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.F3, NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.F3, 0,
+      NOTE.D3, NOTE.F3, NOTE.A3, NOTE.C4, NOTE.A3, NOTE.F3, NOTE.D3, NOTE.F3, NOTE.G3, NOTE.B3, NOTE.D4, NOTE.G4, NOTE.D4, NOTE.B3, NOTE.G3, 0,
+      NOTE.A3, NOTE.C4, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.C4, NOTE.A3, NOTE.C4, NOTE.E4, 0, 0, 0, 0, 0, 0, 0
+    ];
+
+    for (let i = 0; i < 256; i++) {
+      scoreTwilight.ch1[i] = tMelody[i % 128];
+      scoreTwilight.ch2[i] = tHarm[i % 128];
+      scoreTwilight.ch3[i] = tBass[i % 128];
+      scoreTwilight.ch4[i] = tArp[i % 128];
+      const s = i % 16;
+      if (s === 4 || s === 12) scoreTwilight.ch5[i] = 3;
     }
   }
 
@@ -725,7 +835,7 @@
   }
 
   function buildSequencer() {
-    buildBgmScore();
+    buildBgmScores();
     nextStepTime = audioCtx.currentTime + 0.05;
     sequencerTimer = setInterval(() => {
       if (!audioCtx || audioCtx.state !== 'running') return;
@@ -735,20 +845,28 @@
       while (nextStepTime < audioCtx.currentTime + 0.12) {
         const step = currentStep;
         const t = nextStepTime;
+        const curScore = flags.isTwilight ? scoreTwilight : scoreMidday;
 
-        const f1 = scoreCh1[step];
-        if (f1) scheduleNote(waveLead, f1, t, STEP_DUR * 3.2, 0.13, 0);
+        const f1 = curScore.ch1[step];
+        if (f1) {
+          const w1 = flags.isTwilight ? waveHollow : waveLead;
+          const v1 = flags.isTwilight ? 0.12 : 0.13;
+          scheduleNote(w1, f1, t, STEP_DUR * (flags.isTwilight ? 3.5 : 3.2), v1, 0);
+        }
 
-        const f2 = scoreCh2[step];
-        if (f2) scheduleNote(waveHollow, f2, t, STEP_DUR * 3.0, 0.08, 1);
+        const f2 = curScore.ch2[step];
+        if (f2) {
+          const v2 = flags.isTwilight ? 0.06 : 0.08;
+          scheduleNote(waveHollow, f2, t, STEP_DUR * (flags.isTwilight ? 3.2 : 3.0), v2, 1);
+        }
 
-        const f3 = scoreCh3[step];
+        const f3 = curScore.ch3[step];
         if (f3) scheduleNote(waveBass, f3, t, STEP_DUR * 2.8, 0.15, 2);
 
-        const f4 = scoreCh4[step];
+        const f4 = curScore.ch4[step];
         if (f4) scheduleNote(waveArp, f4, t, STEP_DUR * 1.8, 0.06, 3);
 
-        const p = scoreCh5[step];
+        const p = curScore.ch5[step];
         if (p === 1) playKick(t);
         else if (p === 2) playSnare(t);
         else if (p === 3) playHihat(t);
@@ -938,6 +1056,40 @@
       vceRgba(0,4,1),  // D: Forest green shadow
       vceRgba(2,2,3),  // E: Glossy jet-black hair base
       vceRgba(7,4,5)   // F: Pastel pink
+    ],
+    interiorMidday: [
+      [0,0,0,0], OUTLINE_RGBA,
+      vceRgba(5,3,1), // 2: Wood base
+      vceRgba(6,4,2), // 3: Wood light plank
+      vceRgba(4,2,1), // 4: Wood dark / shadow
+      vceRgba(7,5,2), // 5: Wood highlight
+      vceRgba(7,2,0), // 6: Hearth red flame
+      vceRgba(7,5,0), // 7: Hearth orange/yellow flame
+      vceRgba(7,7,3), // 8: Hearth white-yellow core
+      vceRgba(2,5,7), // 9: Glass elixir cyan
+      vceRgba(7,6,1), // A: Gold/brass trim
+      vceRgba(7,7,7), // B: White foam / lace
+      vceRgba(2,2,3), // C: Dark iron / keg hoops
+      vceRgba(1,6,2), // D: Emerald potion
+      vceRgba(6,1,2), // E: Crimson velvet / rug
+      vceRgba(4,4,5)  // F: Stone hearth brick
+    ],
+    interiorTwilight: [
+      [0,0,0,0], OUTLINE_RGBA,
+      vceRgba(3,2,1), // 2
+      vceRgba(4,3,1), // 3
+      vceRgba(2,1,0), // 4
+      vceRgba(5,3,2), // 5
+      vceRgba(7,2,0), // 6
+      vceRgba(7,4,0), // 7
+      vceRgba(7,6,2), // 8
+      vceRgba(1,3,5), // 9
+      vceRgba(5,4,1), // A
+      vceRgba(5,5,6), // B
+      vceRgba(1,1,2), // C
+      vceRgba(1,4,1), // D
+      vceRgba(4,1,1), // E
+      vceRgba(3,2,4)  // F
     ]
   };
 
@@ -1510,6 +1662,150 @@
       "0001666666661000",
       "0000111111110000",
       "0000001111000000"
+    ],
+    woodFloor: [
+      "4444444444444444",
+      "3333333333333333",
+      "3222222222222223",
+      "3222222222222223",
+      "4444444444444444",
+      "3333333333333333",
+      "3222222222222223",
+      "3222222222222223",
+      "4444444444444444",
+      "3333333333333333",
+      "3222222222222223",
+      "3222222222222223",
+      "4444444444444444",
+      "3333333333333333",
+      "3222222222222223",
+      "4444444444444444"
+    ],
+    hearthFire0: [
+      "FFFFFFFFFFFFFFFF",
+      "F11111111111111F",
+      "F14444444444441F",
+      "F14444444444441F",
+      "F14444464444441F",
+      "F14444676444441F",
+      "F14446787644441F",
+      "F14467888764441F",
+      "F14467888764441F",
+      "F14678888876441F",
+      "F16788888887641F",
+      "F16777777777641F",
+      "F11222222222211F",
+      "F11444444444411F",
+      "F11111111111111F",
+      "FFFFFFFFFFFFFFFF"
+    ],
+    hearthFire1: [
+      "FFFFFFFFFFFFFFFF",
+      "F11111111111111F",
+      "F14444444444441F",
+      "F14444644444441F",
+      "F14446764464441F",
+      "F14467876676441F",
+      "F14478887787641F",
+      "F14678888887641F",
+      "F14678888887641F",
+      "F16788888887641F",
+      "F16788888887641F",
+      "F16777777777641F",
+      "F11222222222211F",
+      "F11444444444411F",
+      "F11111111111111F",
+      "FFFFFFFFFFFFFFFF"
+    ],
+    alchemyShelf: [
+      "1111111111111111",
+      "1333333333333331",
+      "1244444444444421",
+      "1249944DD44EE421",
+      "1249944DD44EE421",
+      "1333333333333331",
+      "1111111111111111",
+      "1244444444444421",
+      "124EE449944DD421",
+      "124EE449944DD421",
+      "1333333333333331",
+      "1111111111111111",
+      "1244444444444421",
+      "124AA44BB44AA421",
+      "1333333333333331",
+      "1111111111111111"
+    ],
+    tavernBarrel: [
+      "0000111111110000",
+      "0011222222221100",
+      "0122CCCCCCCC2210",
+      "1222333333332221",
+      "1224444444444221",
+      "1CC3333333333CC1",
+      "1222222222222221",
+      "1222222222222221",
+      "12222222AA222221",
+      "1CC3333333333CC1",
+      "1224444444444221",
+      "1222333333332221",
+      "0122CCCCCCCC2210",
+      "0011222222221100",
+      "0000111111110000",
+      "0000000000000000"
+    ],
+    tavernCounter: [
+      "1111111111111111",
+      "1AAAAAAAAAAAAAA1",
+      "1555555555555551",
+      "1333333333333331",
+      "1222222222222221",
+      "122BB22222BB2221",
+      "1224422222442221",
+      "1111111111111111",
+      "1333333333333331",
+      "1222222222222221",
+      "1222222222222221",
+      "1222222222222221",
+      "1444444444444441",
+      "1222222222222221",
+      "1444444444444441",
+      "1111111111111111"
+    ],
+    teaTable: [
+      "0000111111110000",
+      "0011333333331100",
+      "0133555555553310",
+      "1355BBBBBBBB5531",
+      "135BAABBBBAAB531",
+      "135BAABBBBAAB531",
+      "1355BBBBBBBB5531",
+      "0133555555553310",
+      "0011333333331100",
+      "0000112222110000",
+      "0000012222100000",
+      "0000014444100000",
+      "0000122222210000",
+      "0001444444441000",
+      "0011111111111100",
+      "0000000000000000"
+    ],
+    exitMat: [
+      "1111111111111111",
+      "1AAAAAAAAAAAAAA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AE3333333333EA1",
+      "1AE3A3A3A3A3AEA1",
+      "1AE3333333333EA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AE3333333333EA1",
+      "1AE3A3A3A3A3AEA1",
+      "1AE3333333333EA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AEEEEEEEEEEEEA1",
+      "1AAAAAAAAAAAAAA1",
+      "1111111111111111"
     ]
   };
 
@@ -1784,6 +2080,132 @@
       "0000177117710000",
       "0000011001100000",
       "0000000000000000"
+    ],
+    seagull0: [
+      "0000000000000000",
+      "0000000000000000",
+      "0000001111000000",
+      "00000144441AA000",
+      "000014144441A000",
+      "0001444444441000",
+      "0015544444444100",
+      "0122554444444100",
+      "1222255444444100",
+      "1222225544441000",
+      "0122222111110000",
+      "0011111100000000",
+      "000001A01A000000",
+      "000001A01A000000",
+      "0000011011000000",
+      "0000000000000000"
+    ],
+    seagull1: [
+      "0000000000000000",
+      "0001100000000000",
+      "0012211111000000",
+      "01222244441AA000",
+      "001214444441A000",
+      "0001444444441000",
+      "0015544444444100",
+      "0122554444444100",
+      "0011255444444100",
+      "0000125544441000",
+      "0000011111110000",
+      "0000000000000000",
+      "000001A001A00000",
+      "00001AA01AA00000",
+      "0000011001100000",
+      "0000000000000000"
+    ],
+    icon_starlight_tonic: [
+      "0000000110000000",
+      "0000001331000000",
+      "0000001111000000",
+      "0000012222100000",
+      "0000122222210000",
+      "0001299999921000",
+      "001299B999992100",
+      "00129BBB99992100",
+      "001299B999992100",
+      "0012999999992100",
+      "0012999999992100",
+      "0012999999992100",
+      "0001299999921000",
+      "0000122222210000",
+      "0000011111100000",
+      "0000000000000000"
+    ],
+    icon_silver_teacup: [
+      "0000000000000000",
+      "0000000000000000",
+      "0011111111110000",
+      "0155555555551000",
+      "1533333333335100",
+      "153AAAAAAAA35110",
+      "153AAAAAAAA35101",
+      "153AAAAAAAA35101",
+      "0153AAAAAA351010",
+      "00153AAAA3511000",
+      "0001533335100000",
+      "0000115511000000",
+      "0000015510000000",
+      "0001155551100000",
+      "0011111111110000",
+      "0000000000000000"
+    ],
+    icon_guard_sandwich: [
+      "0000000000000000",
+      "0000000000000000",
+      "0001111111110000",
+      "0013333333331000",
+      "0133555555333100",
+      "1355555555553310",
+      "1111111111111110",
+      "1DDDDDDDDDDDDDD1",
+      "1EEEEEEEEEEEEEE1",
+      "1AAAAAAAAAAAAAA1",
+      "1111111111111110",
+      "0133333333333310",
+      "0013344444433100",
+      "0001111111111000",
+      "0000000000000000",
+      "0000000000000000"
+    ],
+    icon_jasmine_tea: [
+      "0000001001000000",
+      "0000010010000000",
+      "0000111111110000",
+      "0001555555551000",
+      "0015333333335100",
+      "0153AAADAAAA3510",
+      "153AAADDDAAA3511",
+      "153AAADAAAAA3510",
+      "0153AAAAAAAA3511",
+      "00153AAAAAA35100",
+      "0001533333351000",
+      "0000115555110000",
+      "0000015555100000",
+      "0001155555511000",
+      "0011111111111100",
+      "0000000000000000"
+    ],
+    icon_tavern_pass: [
+      "0000111111110000",
+      "0011AAAAAAAA1100",
+      "01AA55555555AA10",
+      "1AA5555555555AA1",
+      "1A55111111555AA1",
+      "1A551BBBB1155AA1",
+      "1A55144441015AA1",
+      "1A55144441015AA1",
+      "1A55144441155AA1",
+      "1A55111111555AA1",
+      "1AA5555555555AA1",
+      "1AA5555555555AA1",
+      "01AA55555555AA10",
+      "0011AAAAAAAA1100",
+      "0000111111110000",
+      "0000000000000000"
     ]
   };
 
@@ -1821,7 +2243,15 @@
       { id: 'fountainSpire0', hex: TILE_HEX.fountainSpire0, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
       { id: 'fountainSpire1', hex: TILE_HEX.fountainSpire1, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
       { id: 'fountainSpire2', hex: TILE_HEX.fountainSpire2, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
-      { id: 'fountainSpire3', hex: TILE_HEX.fountainSpire3, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight }
+      { id: 'fountainSpire3', hex: TILE_HEX.fountainSpire3, palM: PAL_MAP.waterMidday, palT: PAL_MAP.waterTwilight },
+      { id: 'woodFloor', hex: TILE_HEX.woodFloor, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'hearthFire0', hex: TILE_HEX.hearthFire0, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'hearthFire1', hex: TILE_HEX.hearthFire1, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'alchemyShelf', hex: TILE_HEX.alchemyShelf, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'tavernBarrel', hex: TILE_HEX.tavernBarrel, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'tavernCounter', hex: TILE_HEX.tavernCounter, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'teaTable', hex: TILE_HEX.teaTable, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight },
+      { id: 'exitMat', hex: TILE_HEX.exitMat, palM: PAL_MAP.interiorMidday, palT: PAL_MAP.interiorTwilight }
     ];
 
     tileDefs.forEach(t => {
@@ -1848,6 +2278,11 @@
     tileCanvasesTwilight['guardRight'] = tileCanvasesMidday['guardRight'];
     tileCanvasesMidday['childRight'] = flipCanvasH(tileCanvasesMidday['child0']);
     tileCanvasesTwilight['childRight'] = tileCanvasesMidday['childRight'];
+
+    tileCanvasesMidday['seagullRight0'] = flipCanvasH(tileCanvasesMidday['seagull0']);
+    tileCanvasesTwilight['seagullRight0'] = tileCanvasesMidday['seagullRight0'];
+    tileCanvasesMidday['seagullRight1'] = flipCanvasH(tileCanvasesMidday['seagull1']);
+    tileCanvasesTwilight['seagullRight1'] = tileCanvasesMidday['seagullRight1'];
   }
 
   function flipCanvasH(src) {
@@ -2058,6 +2493,41 @@
     "01111111111111111111111110000000"
   ];
 
+  const SEAGULL_PORTRAIT_BASE = [
+    "00000000000000000000000000000000",
+    "00000000000000000000000000000000",
+    "00000000000011111100000000000000",
+    "00000000000188888810000000000000",
+    "00000000001888888881000000000000",
+    "00000000018888888888100000000000",
+    "00000000188811888888811110000000",
+    "00000000188188188888814441000000",
+    "00000000188111188888814444100000",
+    "00000000188811888888144444410000",
+    "00000000188888888888144444441000",
+    "00000000018888888888111144441000",
+    "00000000001888888888888111110000",
+    "00000000000188888888888100000000",
+    "00000000001888888888888810000000",
+    "00000000018888888888888881000000",
+    "00000000199888888888888888100000",
+    "00000001999988888888888888100000",
+    "00000019999998888888888888810000",
+    "00000199999999888888888888810000",
+    "00000199999999888888888888810000",
+    "00001999999999988888888888881000",
+    "00001999999999988888888888881000",
+    "00001999999999988888888888881000",
+    "00000199999999888888888888810000",
+    "00000019999998888888888888810000",
+    "00000001111118888888888888100000",
+    "00000000000001111188888811000000",
+    "00000000000000000111111100000000",
+    "00000000000000000000000000000000",
+    "00000000000000000000000000000000",
+    "00000000000000000000000000000000"
+  ];
+
   const portraitCache = {};
 
   function replaceRowSlice(rowStr, startCol, replacement) {
@@ -2172,91 +2642,166 @@
     let mat = ELDER_PORTRAIT_BASE;
     if (type === 'guard') mat = GUARD_PORTRAIT_BASE;
     else if (type === 'child') mat = CHILD_PORTRAIT_BASE;
+    else if (type === 'seagull') mat = SEAGULL_PORTRAIT_BASE;
     const c = compilePortraitCanvas(mat);
     portraitCache[type] = c;
     return c;
   }
 
   // =========================================================================
-  // SECTION 6: Town of Aldenor Map Architecture (32x26 Tiles = 512x416 Pixels)
+  // SECTION 6: Multi-Room Map Registry & Interior Rooms Architecture
   // =========================================================================
-  const MAP_W = 32;
-  const MAP_H = 26;
   const TILE_SZ = 16;
-  const MAP_PX_W = MAP_W * TILE_SZ; // 512
-  const MAP_PX_H = MAP_H * TILE_SZ; // 416
+  let activeMapId = 'aldenor_exterior';
 
-  const groundLayer = new Array(MAP_W * MAP_H).fill('cobble1');
-  const structLayer = new Array(MAP_W * MAP_H).fill(null);
-  const overheadLayer = new Array(MAP_W * MAP_H).fill(null);
-  const collisionMap = new Uint8Array(MAP_W * MAP_H).fill(0);
+  const MAPS = {
+    aldenor_exterior: {
+      id: 'aldenor_exterior',
+      name: 'Aldenor Town',
+      width: 32,
+      height: 26,
+      groundLayer: new Array(32 * 26).fill('cobble1'),
+      structLayer: new Array(32 * 26).fill(null),
+      overheadLayer: new Array(32 * 26).fill(null),
+      collisionMap: new Uint8Array(32 * 26).fill(0),
+      hearthPos: null,
+      lanterns: [
+        { x: 192 + 8, y: 176 + 6 },
+        { x: 304 + 8, y: 176 + 6 },
+        { x: 192 + 8, y: 240 + 6 },
+        { x: 304 + 8, y: 240 + 6 },
+        { x: 352 + 8, y: 144 + 6 },
+        { x: 432 + 8, y: 144 + 6 },
+        { x: 128 + 8, y: 192 + 6 },
+        { x: 208 + 8, y: 368 + 6 },
+        { x: 288 + 8, y: 368 + 6 }
+      ]
+    },
+    manor_parlor: {
+      id: 'manor_parlor',
+      name: 'Grand Manor Parlor',
+      width: 16,
+      height: 14,
+      groundLayer: new Array(16 * 14).fill('woodFloor'),
+      structLayer: new Array(16 * 14).fill(null),
+      overheadLayer: new Array(16 * 14).fill(null),
+      collisionMap: new Uint8Array(16 * 14).fill(0),
+      hearthPos: { x: 8 * 16, y: 2 * 16 },
+      lanterns: [
+        { x: 2 * 16 + 8, y: 11 * 16 + 6 },
+        { x: 13 * 16 + 8, y: 11 * 16 + 6 }
+      ]
+    },
+    lumina_workshop: {
+      id: 'lumina_workshop',
+      name: "Lumina's Workshop",
+      width: 14,
+      height: 12,
+      groundLayer: new Array(14 * 12).fill('woodFloor'),
+      structLayer: new Array(14 * 12).fill(null),
+      overheadLayer: new Array(14 * 12).fill(null),
+      collisionMap: new Uint8Array(14 * 12).fill(0),
+      hearthPos: null,
+      lanterns: [
+        { x: 2 * 16 + 8, y: 4 * 16 + 6 },
+        { x: 11 * 16 + 8, y: 4 * 16 + 6 }
+      ]
+    },
+    harbor_tavern: {
+      id: 'harbor_tavern',
+      name: 'South Harbor Tavern',
+      width: 16,
+      height: 14,
+      groundLayer: new Array(16 * 14).fill('woodFloor'),
+      structLayer: new Array(16 * 14).fill(null),
+      overheadLayer: new Array(16 * 14).fill(null),
+      collisionMap: new Uint8Array(16 * 14).fill(0),
+      hearthPos: { x: 12 * 16, y: 2 * 16 },
+      lanterns: [
+        { x: 1 * 16 + 8, y: 12 * 16 + 6 },
+        { x: 14 * 16 + 8, y: 12 * 16 + 6 }
+      ]
+    }
+  };
+
+  function getActiveMap() {
+    return MAPS[activeMapId] || MAPS.aldenor_exterior;
+  }
+
+  // Compatibility exports
+  const MAP_W = 32, MAP_H = 26;
+  const MAP_PX_W = 512, MAP_PX_H = 416;
+
+  function setMapTile(map, x, y, ground, struct = null, overhead = null, solid = 0) {
+    if (x < 0 || x >= map.width || y < 0 || y >= map.height) return;
+    const idx = y * map.width + x;
+    if (ground) map.groundLayer[idx] = ground;
+    if (struct) map.structLayer[idx] = struct;
+    if (overhead) map.overheadLayer[idx] = overhead;
+    if (solid) map.collisionMap[idx] = solid;
+  }
 
   function setTile(x, y, ground, struct = null, overhead = null, solid = 0) {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
-    const idx = y * MAP_W + x;
-    if (ground) groundLayer[idx] = ground;
-    if (struct) structLayer[idx] = struct;
-    if (overhead) overheadLayer[idx] = overhead;
-    if (solid) collisionMap[idx] = solid;
+    setMapTile(MAPS.aldenor_exterior, x, y, ground, struct, overhead, solid);
   }
 
   function buildAldenorMap() {
+    const m = MAPS.aldenor_exterior;
     // 1. Base terrain: cobblestones across town
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        groundLayer[y * MAP_W + x] = ((x + y) % 3 === 0) ? 'cobble2' : 'cobble1';
+    for (let y = 0; y < m.height; y++) {
+      for (let x = 0; x < m.width; x++) {
+        setMapTile(m, x, y, ((x + y) % 3 === 0) ? 'cobble2' : 'cobble1');
       }
     }
 
     // 2. Map Boundaries (outer stone walls & fences)
-    for (let x = 0; x < MAP_W; x++) {
-      setTile(x, 0, 'wallBase', 'wallMid', 'roofTile', 1);
-      setTile(x, 1, 'wallBase', 'wallMid', null, 1);
-      setTile(x, MAP_H - 1, 'wallBase', null, null, 1);
+    for (let x = 0; x < m.width; x++) {
+      setMapTile(m, x, 0, 'wallBase', 'wallMid', 'roofTile', 1);
+      setMapTile(m, x, 1, 'wallBase', 'wallMid', null, 1);
+      setMapTile(m, x, m.height - 1, 'wallBase', null, null, 1);
     }
-    for (let y = 0; y < MAP_H; y++) {
-      setTile(0, y, 'wallBase', 'wallMid', null, 1);
-      setTile(MAP_W - 1, y, 'wallBase', 'wallMid', null, 1);
+    for (let y = 0; y < m.height; y++) {
+      setMapTile(m, 0, y, 'wallBase', 'wallMid', null, 1);
+      setMapTile(m, m.width - 1, y, 'wallBase', 'wallMid', null, 1);
     }
 
     // 3. Central Fountain Plaza (x: 13..18, y: 11..15)
     for (let py = 11; py <= 15; py++) {
       for (let px = 13; px <= 18; px++) {
-        setTile(px, py, 'plaza', null, null, 0);
+        setMapTile(m, px, py, 'plaza', null, null, 0);
       }
     }
     // 3x3 Fountain Basin at (14..16, 12..14)
     for (let fy = 12; fy <= 14; fy++) {
       for (let fx = 14; fx <= 16; fx++) {
-        setTile(fx, fy, 'waterRim', null, null, 1);
+        setMapTile(m, fx, fy, 'waterRim', null, null, 1);
       }
     }
-    setTile(12, 13, 'cobble1', 'bench', null, 1);
-    setTile(19, 13, 'cobble1', 'bench', null, 1);
-    setTile(12, 11, 'cobble1', 'lampPost', null, 1);
-    setTile(19, 11, 'cobble1', 'lampPost', null, 1);
-    setTile(12, 15, 'cobble1', 'lampPost', null, 1);
-    setTile(19, 15, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 12, 13, 'cobble1', 'bench', null, 1);
+    setMapTile(m, 19, 13, 'cobble1', 'bench', null, 1);
+    setMapTile(m, 12, 11, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 19, 11, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 12, 15, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 19, 15, 'cobble1', 'lampPost', null, 1);
 
-    setTile(11, 12, 'flowers', null, null, 0);
-    setTile(11, 14, 'flowers', null, null, 0);
-    setTile(20, 12, 'flowers', null, null, 0);
-    setTile(20, 14, 'flowers', null, null, 0);
+    setMapTile(m, 11, 12, 'flowers', null, null, 0);
+    setMapTile(m, 11, 14, 'flowers', null, null, 0);
+    setMapTile(m, 20, 12, 'flowers', null, null, 0);
+    setMapTile(m, 20, 14, 'flowers', null, null, 0);
 
     // 4. Northeast Grand Manor (x: 20..30, y: 2..10)
     for (let my = 2; my <= 5; my++) {
       for (let mx = 21; mx <= 29; mx++) {
         if (my === 2) {
-          setTile(mx, my, 'wallBase', 'roofTile', 'roofTile', 1);
+          setMapTile(m, mx, my, 'wallBase', 'roofTile', 'roofTile', 1);
         } else if (my === 3) {
-          setTile(mx, my, 'wallBase', 'wallMid', 'roofTile', 1);
+          setMapTile(m, mx, my, 'wallBase', 'wallMid', 'roofTile', 1);
         } else if (my === 4) {
           const isWin = (mx === 23 || mx === 27);
-          setTile(mx, my, 'wallBase', isWin ? 'stainedWindow' : 'wallBase', null, 1);
+          setMapTile(m, mx, my, 'wallBase', isWin ? 'stainedWindow' : 'wallBase', null, 1);
         } else if (my === 5) {
           const isDoor = (mx === 24 || mx === 25);
-          // Solid = 1 for all building walls AND closed doors
-          setTile(mx, my, 'carpet', isDoor ? 'oakDoor' : 'wallBase', null, 1);
+          setMapTile(m, mx, my, 'carpet', isDoor ? 'oakDoor' : 'wallBase', null, 1);
         }
       }
     }
@@ -2264,72 +2809,262 @@
     for (let cy = 6; cy <= 9; cy++) {
       for (let cx = 20; cx <= 30; cx++) {
         const isCarpet = (cx === 24 || cx === 25);
-        setTile(cx, cy, isCarpet ? 'carpet' : 'plaza', null, null, 0);
+        setMapTile(m, cx, cy, isCarpet ? 'carpet' : 'plaza', null, null, 0);
       }
     }
     // Courtyard Wrought Iron Fence (row 10, cols 20..30)
     for (let fx = 20; fx <= 30; fx++) {
       if (fx === 24 || fx === 25) {
-        setTile(fx, 10, 'carpet', null, null, 0);
+        setMapTile(m, fx, 10, 'carpet', null, null, 0);
       } else if (fx === 23 || fx === 26) {
-        setTile(fx, 10, 'plaza', 'gatePillar', null, 1);
+        setMapTile(m, fx, 10, 'plaza', 'gatePillar', null, 1);
       } else {
-        setTile(fx, 10, 'plaza', 'ironFence', null, 1);
+        setMapTile(m, fx, 10, 'plaza', 'ironFence', null, 1);
       }
     }
-    setTile(22, 9, 'plaza', 'lampPost', null, 1);
-    setTile(27, 9, 'plaza', 'lampPost', null, 1);
+    setMapTile(m, 22, 9, 'plaza', 'lampPost', null, 1);
+    setMapTile(m, 27, 9, 'plaza', 'lampPost', null, 1);
 
     // 5. West Market & Apothecary (x: 2..11, y: 8..16)
     for (let ay = 7; ay <= 9; ay++) {
       for (let ax = 3; ax <= 8; ax++) {
-        if (ay === 7) setTile(ax, ay, 'wallBase', 'roofTile', 'roofTile', 1);
-        else if (ay === 8) setTile(ax, ay, 'wallBase', 'timberWall', 'roofTile', 1);
-        // Solid = 1 for all building walls AND closed doors
-        else setTile(ax, ay, 'cobble1', (ax === 6) ? 'oakDoor' : 'timberWall', null, 1);
+        if (ay === 7) setMapTile(m, ax, ay, 'wallBase', 'roofTile', 'roofTile', 1);
+        else if (ay === 8) setMapTile(m, ax, ay, 'wallBase', 'timberWall', 'roofTile', 1);
+        else setMapTile(m, ax, ay, 'cobble1', (ax === 6) ? 'oakDoor' : 'timberWall', null, 1);
       }
     }
-    setTile(5, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
-    setTile(6, 12, 'cobble1', null, 'awningBlue', 0);
-    setTile(7, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
-    setTile(8, 12, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 5, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
+    setMapTile(m, 6, 12, 'cobble1', null, 'awningBlue', 0);
+    setMapTile(m, 7, 12, 'cobble1', 'potionStall', 'awningBlue', 1);
+    setMapTile(m, 8, 12, 'cobble1', 'lampPost', null, 1);
 
-    setTile(3, 15, 'cobble1', 'potionStall', 'awningRed', 1);
-    setTile(4, 15, 'cobble1', 'potionStall', 'awningRed', 1);
-    setTile(8, 15, 'cobble1', 'potionStall', 'awningRed', 1);
-    setTile(9, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setMapTile(m, 3, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setMapTile(m, 4, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setMapTile(m, 8, 15, 'cobble1', 'potionStall', 'awningRed', 1);
+    setMapTile(m, 9, 15, 'cobble1', 'potionStall', 'awningRed', 1);
 
     // 6. South Tavern & Harbor Gate (x: 4..28, y: 17..24)
     for (let ty = 17; ty <= 20; ty++) {
       for (let tx = 21; tx <= 27; tx++) {
-        if (ty === 17) setTile(tx, ty, 'wallBase', 'roofTile', 'roofTile', 1);
-        else if (ty === 18) setTile(tx, ty, 'wallBase', 'timberWall', 'roofTile', 1);
-        else if (ty === 19) setTile(tx, ty, 'wallBase', (tx === 23 || tx === 25) ? 'stainedWindow' : 'timberWall', null, 1);
-        // Solid = 1 for all building walls AND closed doors
-        else setTile(tx, ty, 'cobble1', (tx === 24) ? 'oakDoor' : 'timberWall', null, 1);
+        if (ty === 17) setMapTile(m, tx, ty, 'wallBase', 'roofTile', 'roofTile', 1);
+        else if (ty === 18) setMapTile(m, tx, ty, 'wallBase', 'timberWall', 'roofTile', 1);
+        else if (ty === 19) setMapTile(m, tx, ty, 'wallBase', (tx === 23 || tx === 25) ? 'stainedWindow' : 'timberWall', null, 1);
+        else setMapTile(m, tx, ty, 'cobble1', (tx === 24) ? 'oakDoor' : 'timberWall', null, 1);
       }
     }
     for (let gy = 24; gy <= 25; gy++) {
       for (let gx = 14; gx <= 17; gx++) {
-        setTile(gx, gy, 'curb', null, null, 0);
+        setMapTile(m, gx, gy, 'curb', null, null, 0);
       }
     }
-    setTile(13, 24, 'curb', 'gatePillar', null, 1);
-    setTile(18, 24, 'curb', 'gatePillar', null, 1);
-    setTile(13, 23, 'cobble1', 'lampPost', null, 1);
-    setTile(18, 23, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 13, 24, 'curb', 'gatePillar', null, 1);
+    setMapTile(m, 18, 24, 'curb', 'gatePillar', null, 1);
+    setMapTile(m, 13, 23, 'cobble1', 'lampPost', null, 1);
+    setMapTile(m, 18, 23, 'cobble1', 'lampPost', null, 1);
+    m.lanterns = [
+      { x: 192 + 8, y: 176 + 6 },
+      { x: 304 + 8, y: 176 + 6 },
+      { x: 192 + 8, y: 240 + 6 },
+      { x: 304 + 8, y: 240 + 6 },
+      { x: 352 + 8, y: 144 + 6 },
+      { x: 432 + 8, y: 144 + 6 },
+      { x: 128 + 8, y: 192 + 6 },
+      { x: 208 + 8, y: 368 + 6 },
+      { x: 288 + 8, y: 368 + 6 }
+    ];
+    m.hearthPos = null;
+  }
+
+  function buildManorParlorMap() {
+    const m = MAPS.manor_parlor;
+    for (let y = 0; y < m.height; y++) {
+      for (let x = 0; x < m.width; x++) {
+        setMapTile(m, x, y, 'woodFloor', null, null, 0);
+      }
+    }
+    for (let x = 0; x < m.width; x++) {
+      setMapTile(m, x, 0, 'wallBase', 'wallMid', 'roofTile', 1);
+      setMapTile(m, x, 1, 'wallBase', (x === 4 || x === 11) ? 'stainedWindow' : 'wallMid', null, 1);
+    }
+    for (let y = 2; y < m.height; y++) {
+      setMapTile(m, 0, y, 'wallBase', 'wallMid', null, 1);
+      setMapTile(m, m.width - 1, y, 'wallBase', 'wallMid', null, 1);
+    }
+    for (let x = 0; x < m.width; x++) {
+      if (x === 7 || x === 8) {
+        setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
+      } else {
+        setMapTile(m, x, m.height - 1, 'wallBase', 'wallMid', null, 1);
+      }
+    }
+    // Plush red carpet in center
+    for (let cy = 4; cy <= 10; cy++) {
+      for (let cx = 5; cx <= 10; cx++) {
+        setMapTile(m, cx, cy, 'carpet', null, null, 0);
+      }
+    }
+    // Hearth fireplace at x: 7, 8, y: 1..2
+    setMapTile(m, 7, 2, 'wallBase', 'hearthFire0', null, 1);
+    setMapTile(m, 8, 2, 'wallBase', 'hearthFire0', null, 1);
+    // Shelves
+    setMapTile(m, 1, 2, 'woodFloor', 'alchemyShelf', null, 1);
+    setMapTile(m, 2, 2, 'woodFloor', 'alchemyShelf', null, 1);
+    setMapTile(m, 13, 2, 'woodFloor', 'alchemyShelf', null, 1);
+    setMapTile(m, 14, 2, 'woodFloor', 'alchemyShelf', null, 1);
+    // Central Tea Table & Benches
+    setMapTile(m, 7, 6, 'carpet', 'teaTable', null, 1);
+    setMapTile(m, 8, 6, 'carpet', 'teaTable', null, 1);
+    setMapTile(m, 6, 6, 'carpet', 'bench', null, 1);
+    setMapTile(m, 9, 6, 'carpet', 'bench', null, 1);
+    // Parlor lanterns
+    setMapTile(m, 2, 11, 'woodFloor', 'lampPost', null, 1);
+    setMapTile(m, 13, 11, 'woodFloor', 'lampPost', null, 1);
+    m.lanterns = [
+      { x: 2 * 16 + 8, y: 11 * 16 + 6 },
+      { x: 13 * 16 + 8, y: 11 * 16 + 6 }
+    ];
+    m.hearthPos = { x: 8 * 16, y: 2.5 * 16 };
+  }
+
+  function buildLuminaWorkshopMap() {
+    const m = MAPS.lumina_workshop;
+    for (let y = 0; y < m.height; y++) {
+      for (let x = 0; x < m.width; x++) {
+        setMapTile(m, x, y, 'woodFloor', null, null, 0);
+      }
+    }
+    for (let x = 0; x < m.width; x++) {
+      setMapTile(m, x, 0, 'wallBase', 'timberWall', 'roofTile', 1);
+      setMapTile(m, x, 1, 'wallBase', (x === 3 || x === 10) ? 'stainedWindow' : 'timberWall', null, 1);
+    }
+    for (let y = 2; y < m.height; y++) {
+      setMapTile(m, 0, y, 'wallBase', 'timberWall', null, 1);
+      setMapTile(m, m.width - 1, y, 'wallBase', 'timberWall', null, 1);
+    }
+    for (let x = 0; x < m.width; x++) {
+      if (x === 6 || x === 7) {
+        setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
+      } else {
+        setMapTile(m, x, m.height - 1, 'wallBase', 'timberWall', null, 1);
+      }
+    }
+    [1, 2, 4, 5, 8, 9, 11, 12].forEach(sx => {
+      setMapTile(m, sx, 2, 'woodFloor', 'alchemyShelf', null, 1);
+    });
+    for (let cx = 4; cx <= 9; cx++) {
+      setMapTile(m, cx, 5, 'woodFloor', 'potionStall', null, 1);
+    }
+    setMapTile(m, 1, 8, 'woodFloor', 'tavernBarrel', null, 1);
+    setMapTile(m, 2, 8, 'woodFloor', 'tavernBarrel', null, 1);
+    setMapTile(m, 11, 8, 'woodFloor', 'tavernBarrel', null, 1);
+    setMapTile(m, 12, 8, 'woodFloor', 'tavernBarrel', null, 1);
+    setMapTile(m, 2, 4, 'woodFloor', 'lampPost', null, 1);
+    setMapTile(m, 11, 4, 'woodFloor', 'lampPost', null, 1);
+    m.lanterns = [
+      { x: 2 * 16 + 8, y: 4 * 16 + 6 },
+      { x: 11 * 16 + 8, y: 4 * 16 + 6 }
+    ];
+    m.hearthPos = null;
+  }
+
+  function buildHarborTavernMap() {
+    const m = MAPS.harbor_tavern;
+    for (let y = 0; y < m.height; y++) {
+      for (let x = 0; x < m.width; x++) {
+        setMapTile(m, x, y, 'woodFloor', null, null, 0);
+      }
+    }
+    for (let x = 0; x < m.width; x++) {
+      setMapTile(m, x, 0, 'wallBase', 'timberWall', 'roofTile', 1);
+      setMapTile(m, x, 1, 'wallBase', (x === 3 || x === 7) ? 'stainedWindow' : 'timberWall', null, 1);
+    }
+    for (let y = 2; y < m.height; y++) {
+      setMapTile(m, 0, y, 'wallBase', 'timberWall', null, 1);
+      setMapTile(m, m.width - 1, y, 'wallBase', 'timberWall', null, 1);
+    }
+    for (let x = 0; x < m.width; x++) {
+      if (x === 7 || x === 8) {
+        setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
+      } else {
+        setMapTile(m, x, m.height - 1, 'wallBase', 'timberWall', null, 1);
+      }
+    }
+    setMapTile(m, 11, 2, 'wallBase', 'hearthFire0', null, 1);
+    setMapTile(m, 12, 2, 'wallBase', 'hearthFire0', null, 1);
+    for (let bx = 1; bx <= 5; bx++) {
+      setMapTile(m, bx, 2, 'woodFloor', 'tavernBarrel', null, 1);
+    }
+    for (let cx = 2; cx <= 6; cx++) {
+      setMapTile(m, cx, 4, 'woodFloor', 'tavernCounter', null, 1);
+    }
+    setMapTile(m, 3, 8, 'woodFloor', 'teaTable', null, 1);
+    setMapTile(m, 2, 8, 'woodFloor', 'bench', null, 1);
+    setMapTile(m, 4, 8, 'woodFloor', 'bench', null, 1);
+
+    setMapTile(m, 9, 8, 'woodFloor', 'teaTable', null, 1);
+    setMapTile(m, 8, 8, 'woodFloor', 'bench', null, 1);
+    setMapTile(m, 10, 8, 'woodFloor', 'bench', null, 1);
+
+    setMapTile(m, 6, 11, 'woodFloor', 'teaTable', null, 1);
+    setMapTile(m, 5, 11, 'woodFloor', 'bench', null, 1);
+    setMapTile(m, 7, 11, 'woodFloor', 'bench', null, 1);
+
+    setMapTile(m, 1, 12, 'woodFloor', 'lampPost', null, 1);
+    setMapTile(m, 14, 12, 'woodFloor', 'lampPost', null, 1);
+    m.lanterns = [
+      { x: 1 * 16 + 8, y: 12 * 16 + 6 },
+      { x: 14 * 16 + 8, y: 12 * 16 + 6 }
+    ];
+    m.hearthPos = { x: 12 * 16, y: 2.5 * 16 };
+  }
+
+  function buildAllMaps() {
+    buildAldenorMap();
+    buildManorParlorMap();
+    buildLuminaWorkshopMap();
+    buildHarborTavernMap();
   }
 
   // =========================================================================
   // SECTION 7: Entity System, AI Patrols & Story Flags
   // =========================================================================
+  const transitionState = {
+    active: false,
+    timer: 0,
+    duration: 0.36,
+    targetMap: null,
+    spawnX: 0,
+    spawnY: 0,
+    spawnDir: 0,
+    halfwayDone: false
+  };
+
+  function startMapTransition(targetMapId, spawnX, spawnY, spawnDir = 0) {
+    if (transitionState.active) return;
+    transitionState.active = true;
+    transitionState.timer = 0;
+    transitionState.duration = 0.36;
+    transitionState.targetMap = targetMapId;
+    transitionState.spawnX = spawnX;
+    transitionState.spawnY = spawnY;
+    transitionState.spawnDir = spawnDir;
+    transitionState.halfwayDone = false;
+    playTransitionChime(targetMapId !== 'aldenor_exterior');
+  }
+
   const flags = {
     talkedToElf: false,
     talkedToNyah: false,
     nyahRantedAboutElf: false,
     nyahVisitedFirst: false,
     elfVisitedFirst: false,
-    isTwilight: false
+    isTwilight: false,
+    inventory: null,
+    pinConfiscated: false,
+    seagullSolved: false,
+    seagullStep: 0,
+    manorUnlocked: false,
+    workshopUnlocked: false
   };
 
   const hero = {
@@ -2347,6 +3082,7 @@
     {
       id: 'nyah',
       name: 'NYAH',
+      mapId: 'aldenor_exterior',
       x: 384, y: 128, // Tile (24, 8) - Grand Manor courtyard steps
       w: 16, h: 16,
       dir: 0,
@@ -2358,6 +3094,7 @@
     {
       id: 'lumina',
       name: 'LUMINA',
+      mapId: 'aldenor_exterior',
       x: 96, y: 176, // Tile (6, 11) - West Market potion counter
       w: 16, h: 16,
       dir: 0,
@@ -2368,6 +3105,7 @@
     {
       id: 'elder',
       name: 'ELDER',
+      mapId: 'aldenor_exterior',
       x: 224, y: 160,
       w: 16, h: 16,
       dir: 2,
@@ -2378,6 +3116,7 @@
     {
       id: 'guard',
       name: 'GUARD',
+      mapId: 'aldenor_exterior',
       x: 224, y: 368,
       w: 16, h: 16,
       dir: 3,
@@ -2388,16 +3127,105 @@
     {
       id: 'child',
       name: 'CHILD',
+      mapId: 'aldenor_exterior',
       x: 220, y: 246,
       w: 16, h: 16,
       dir: 0,
       speed: 40,
       isEngaged: false,
       patrol: { minX: 210, maxX: 276, axis: 'x', dir: 1, pauseTimer: 0 }
+    },
+    {
+      id: 'seagull',
+      name: 'SEAGULL',
+      mapId: 'aldenor_exterior',
+      x: 264, y: 340,
+      w: 16, h: 16,
+      dir: 2,
+      active: true,
+      flapTimer: 0,
+      isEngaged: false,
+      patrol: null
     }
   ];
 
+  function updateNpcSchedules() {
+    const nyah = npcs.find(n => n.id === 'nyah');
+    const lumina = npcs.find(n => n.id === 'lumina');
+    const elder = npcs.find(n => n.id === 'elder');
+    const guard = npcs.find(n => n.id === 'guard');
+    const seagull = npcs.find(n => n.id === 'seagull');
+
+    if (nyah) {
+      if (flags.manorUnlocked && activeMapId === 'manor_parlor') {
+        nyah.mapId = 'manor_parlor';
+        nyah.x = 8 * 16 - 8;
+        nyah.y = 5 * 16;
+        nyah.dir = 0;
+      } else {
+        nyah.mapId = 'aldenor_exterior';
+        if (flags.isTwilight) {
+          nyah.x = 368;
+          nyah.y = 144;
+          nyah.dir = 0;
+        } else {
+          nyah.x = 384;
+          nyah.y = 128;
+          nyah.dir = 0;
+        }
+      }
+    }
+
+    if (lumina) {
+      if (flags.isTwilight) {
+        lumina.mapId = 'lumina_workshop';
+        lumina.x = 7 * 16 - 8;
+        lumina.y = 4 * 16;
+        lumina.dir = 0;
+      } else {
+        lumina.mapId = 'aldenor_exterior';
+        lumina.x = 96;
+        lumina.y = 176;
+        lumina.dir = 0;
+      }
+    }
+
+    if (elder) {
+      if (flags.isTwilight) {
+        elder.mapId = 'harbor_tavern';
+        elder.x = 10 * 16;
+        elder.y = 2 * 16 + 8;
+        elder.dir = 3;
+        elder.patrol = null;
+      } else {
+        elder.mapId = 'aldenor_exterior';
+        elder.x = 224;
+        elder.y = 160;
+        elder.patrol = { minX: 208, maxX: 272, axis: 'x', dir: 1, pauseTimer: 0 };
+      }
+    }
+
+    if (guard) {
+      guard.mapId = 'aldenor_exterior';
+      if (flags.isTwilight) {
+        guard.x = 368;
+        guard.y = 336;
+        guard.patrol = { minX: 352, maxX: 384, axis: 'x', dir: 1, pauseTimer: 0 };
+      } else {
+        guard.x = 224;
+        guard.y = 368;
+        guard.patrol = { minX: 200, maxX: 280, axis: 'x', dir: 1, pauseTimer: 0 };
+      }
+    }
+
+    if (seagull) {
+      seagull.mapId = 'aldenor_exterior';
+      seagull.active = (!flags.seagullSolved && flags.seagullStep < 3);
+    }
+  }
+
   function checkCollision(px, py) {
+    const curMap = getActiveMap();
     const boxX = px + 3;
     const boxY = py + 8;
     const boxW = 10;
@@ -2408,11 +3236,11 @@
     const tTop = Math.floor(boxY / TILE_SZ);
     const tBottom = Math.floor((boxY + boxH - 1) / TILE_SZ);
 
-    if (tLeft < 0 || tRight >= MAP_W || tTop < 0 || tBottom >= MAP_H) return true;
+    if (tLeft < 0 || tRight >= curMap.width || tTop < 0 || tBottom >= curMap.height) return true;
 
     for (let ty = tTop; ty <= tBottom; ty++) {
       for (let tx = tLeft; tx <= tRight; tx++) {
-        if (collisionMap[ty * MAP_W + tx] === 1) return true;
+        if (curMap.collisionMap[ty * curMap.width + tx] === 1) return true;
       }
     }
     return false;
@@ -2426,6 +3254,9 @@
 
   // =========================================================================
   // SECTION 8: Dialogue System & 64x64 Cut-in Manager
+  // =========================================================================
+  // =========================================================================
+  // SECTION 8: Dialogue System, Choice Engine & 64x64 Cut-in Manager
   // =========================================================================
   const dialogueState = {
     active: false,
@@ -2443,11 +3274,116 @@
     earTimer: 0,
     currentExpression: 'smug',
     scrollOffset: 0,
-    isDoorInspection: false
+    isDoorInspection: false,
+    choiceIndex: 0,
+    activeChoices: null
   };
+
+  function updateItemBadge() {
+    const lbl = document.getElementById('lblItemName');
+    if (!lbl) return;
+    if (!flags.inventory) {
+      lbl.textContent = 'NONE';
+    } else if (flags.inventory === 'starlight_tonic') {
+      lbl.textContent = 'Starlight Tonic';
+    } else if (flags.inventory === 'silver_teacup') {
+      lbl.textContent = 'Silver Teacup';
+    } else if (flags.inventory === 'guard_sandwich') {
+      lbl.textContent = 'Guard Sandwich';
+    } else if (flags.inventory === 'jasmine_tea') {
+      lbl.textContent = 'Jasmine-Catnip Tea';
+    } else if (flags.inventory === 'tavern_pass') {
+      lbl.textContent = 'Tavern VIP Pass';
+    } else {
+      lbl.textContent = String(flags.inventory);
+    }
+  }
+
+  function handleSeagullInteraction(seagull) {
+    playSfxSquawk();
+    if (flags.seagullStep === 0) {
+      startCustomDialogue(
+        'SEAGULL',
+        'seagull',
+        "SQUAAAWK!! The harbor seagull flaps frantically, clutching a wrapped sandwich in its beak before darting across the plaza!",
+        'seagull'
+      );
+      seagull.x = 200;
+      seagull.y = 300;
+      flags.seagullStep = 1;
+    } else if (flags.seagullStep === 1) {
+      startCustomDialogue(
+        'SEAGULL',
+        'seagull',
+        "SKREEE! The seagull hops backward, dodging your hands, and flutters over toward the market stall!",
+        'seagull'
+      );
+      seagull.x = 144;
+      seagull.y = 240;
+      flags.seagullStep = 2;
+    } else if (flags.seagullStep === 2) {
+      startCustomDialogue(
+        'SEAGULL',
+        'seagull',
+        "SQUAAAWK!! Cornered against the stones, the startled gull drops the wrapped sandwich with a wet thud and takes flight into the harbor clouds!",
+        'seagull'
+      );
+      flags.seagullStep = 3;
+      flags.inventory = 'guard_sandwich';
+      seagull.active = false;
+      updateItemBadge();
+    }
+  }
 
   function getDialogueTree(npcId) {
     if (npcId === 'nyah') {
+      if (activeMapId === 'manor_parlor') {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'smug',
+            text: "welcome to the Grand Manor parlor, Master! look at our tea table and the crackling fireplace... isn't this ten thousand times better than walking around outside in the dirt?"
+          },
+          {
+            speaker: 'NYAH',
+            expr: 'flustered',
+            text: "...nyah has decided you're officially my favorite person in all of Aldenor. don't make a big deal out of it. just sit next to me and drink your tea."
+          }
+        ];
+      }
+      if (flags.inventory === 'jasmine_tea') {
+        return [
+          {
+            speaker: 'NYAH',
+            expr: 'smug',
+            text: "Master! What is that heavenly scent floating across the courtyard...?",
+            choices: [
+              {
+                label: "Present Jasmine-Catnip Tea & swear fealty",
+                nextExpr: 'flustered',
+                nextLines: [
+                  { speaker: 'NYAH', expr: 'flustered', text: "W-WAIT... is that... Royal Jasmine and Catnip, brewed in the silver teacup?! FOR NYAH?!" },
+                  { speaker: 'NYAH', expr: 'flustered', text: "...and you're swearing fealty to me in front of the whole town?! nyah is... nyah is not blushing!! shut up!!" },
+                  { speaker: 'NYAH', expr: 'smug', text: "here, take your stupid cloak pin back! the manor doors are unlocked now, Master. come inside right now... we're having tea together in the parlor!" }
+                ],
+                onSelect: () => {
+                  flags.manorUnlocked = true;
+                  flags.pinConfiscated = false;
+                  flags.inventory = null;
+                  updateItemBadge();
+                }
+              },
+              {
+                label: "Tease Nyah about her twitching ears",
+                nextExpr: 'bratty',
+                nextLines: [
+                  { speaker: 'NYAH', expr: 'bratty', text: "THEY ARE NOT TWITCHING!! okay maybe they twitched ONCE because that tea smells amazing!! now give it to nyah already!!" }
+                ]
+              }
+            ]
+          }
+        ];
+      }
       if (flags.talkedToElf && !flags.nyahRantedAboutElf) {
         return [
           {
@@ -2463,7 +3399,7 @@
           {
             speaker: 'NYAH',
             expr: 'flustered',
-            text: "...hmph. fine. nyah is confiscating your cloak pin until you apologize properly. ...anyway. don't go back over there. stand closer to nyah where I can keep an eye on you, Master."
+            text: "...hmph. fine. nyah is confiscating your cloak pin until you prove I'm your favorite! and don't expect the manor doors to open anytime soon, Master!!"
           }
         ];
       }
@@ -2477,12 +3413,12 @@
           {
             speaker: 'NYAH',
             expr: 'bratty',
-            text: "and before you even ASK—no, nyah is not sweeping the courtyard! the lord of the manor gave nyah this frilly apron and then nyah immediately claimed the sunny balcony and his best silver teacup. you're allowed to hold the teacup, by the way. because nyah is feeling generous."
+            text: "and before you even ASK—no, nyah is not sweeping the courtyard! the lord of the manor gave nyah this frilly apron and then nyah immediately claimed the sunny balcony and his best silver teacup."
           },
           {
             speaker: 'NYAH',
-            expr: 'jealous',
-            text: "wait... don't go wandering over to the west market stalls, okay?? there's some pointy-eared blonde herb seller over there who smiles at literally everyone and nyah has DECIDED she's suspicious. stay right here and pay attention to me instead!!"
+            expr: 'smug',
+            text: "here, nyah is lending you the Lord's Silver Teacup. go find something worthy of my royal tea break... and don't let miss pointy-ears at the market distract you!"
           }
         ];
       }
@@ -2514,12 +3450,59 @@
         ];
       }
     } else if (npcId === 'lumina') {
-      if (!flags.talkedToNyah) {
+      if (flags.isTwilight && activeMapId === 'aldenor_exterior') {
+        return [
+          {
+            speaker: 'NOTICE',
+            expr: 'lumina',
+            text: "Gone inside the workshop for evening alchemy - knock on the oak door!"
+          }
+        ];
+      }
+      if (flags.inventory === 'silver_teacup' || flags.inventory === 'starlight_tonic') {
         return [
           {
             speaker: 'LUMINA',
             expr: 'friendly',
-            text: "Welcome to Aldenor, traveler! I am Lumina. Need any sun-drop draughts or moon-flower extracts for your journey?"
+            text: "Welcome! Ah, you carry the Lord's fine silver teacup. Are you looking to brew something special today?",
+            choices: [
+              {
+                label: "Blend Royal Jasmine & Catnip Tea",
+                condition: () => flags.inventory === 'silver_teacup' || flags.inventory === 'starlight_tonic',
+                nextExpr: 'friendly',
+                nextLines: [
+                  {
+                    speaker: 'LUMINA',
+                    expr: 'friendly',
+                    text: "A marvelous choice! High-grade dried jasmine blossoms infused with rare mountain catnip... A brew fit for royalty—or a very pampered feline companion! Here you go, hot and fragrant!"
+                  }
+                ],
+                onSelect: () => {
+                  flags.inventory = 'jasmine_tea';
+                  updateItemBadge();
+                }
+              },
+              {
+                label: "Ask for market gossip",
+                nextExpr: 'teasing',
+                nextLines: [
+                  {
+                    speaker: 'LUMINA',
+                    expr: 'teasing',
+                    text: "Gossip? Well, that little catgirl up at the manor won't admit it, but she spends half her evening waiting by the courtyard lantern watching for you!"
+                  }
+                ]
+              }
+            ]
+          }
+        ];
+      }
+      if (!flags.talkedToElf) {
+        return [
+          {
+            speaker: 'LUMINA',
+            expr: 'friendly',
+            text: "Welcome to Aldenor, traveler! I am Lumina. Need any sun-drop draughts or moon-flower extracts for your journey? Take this sample of my Starlight Tonic!"
           },
           {
             speaker: 'LUMINA',
@@ -2541,20 +3524,38 @@
           }
         ];
       }
-    } else if (npcId === 'elder') {
-      return [
-        {
-          speaker: 'ELDER',
-          expr: 'elder',
-          text: "Welcome to our peaceful port of Aldenor, young adventurer. The Grand Manor to the northeast has stood for three centuries, though recently they've hired quite a spirited feline resident..."
-        }
-      ];
     } else if (npcId === 'guard') {
+      if (flags.inventory === 'guard_sandwich') {
+        return [
+          {
+            speaker: 'GUARD',
+            expr: 'guard',
+            text: "By the gods... my smoked herring sandwich! You wrestled it back from that fiendish gull?! You are a true hero, lad! Here—take this Tavern VIP Pass for free mead tonight, and this Silver Teacup the gull dropped near the manor!"
+          }
+        ];
+      }
       return [
         {
           speaker: 'GUARD',
           expr: 'guard',
           text: "Halt, citizen! The harbor road is peaceful today. Mind the fountain plaza, and report any suspicious seagull activity immediately."
+        }
+      ];
+    } else if (npcId === 'elder') {
+      if (activeMapId === 'harbor_tavern') {
+        return [
+          {
+            speaker: 'ELDER',
+            expr: 'elder',
+            text: "Ah, traveler. The warmth of the tavern hearth soothes old bones. In my youth, I sailed the sea of Esteria... May Fortune guide your blade."
+          }
+        ];
+      }
+      return [
+        {
+          speaker: 'ELDER',
+          expr: 'elder',
+          text: "Welcome to our peaceful port of Aldenor, young adventurer. The Grand Manor to the northeast has stood for three centuries, though recently they've hired quite a spirited feline resident..."
         }
       ];
     } else {
@@ -2570,6 +3571,30 @@
 
   function startDialogue(npc) {
     if (dialogueState.cooldownTimer > 0) return;
+
+    if (npc.id === 'seagull') {
+      handleSeagullInteraction(npc);
+      return;
+    }
+
+    if (!flags.talkedToNyah && !flags.talkedToElf) {
+      if (npc.id === 'nyah') {
+        flags.nyahVisitedFirst = true;
+        flags.inventory = 'silver_teacup';
+      } else if (npc.id === 'lumina') {
+        flags.elfVisitedFirst = true;
+        flags.inventory = 'starlight_tonic';
+      }
+    }
+
+    if (npc.id === 'guard' && flags.inventory === 'guard_sandwich') {
+      flags.seagullSolved = true;
+      flags.tavern_pass = true;
+      if (!flags.inventory || flags.inventory === 'guard_sandwich') {
+        flags.inventory = 'silver_teacup';
+      }
+    }
+
     const tree = getDialogueTree(npc.id);
     if (!tree || tree.length === 0) return;
 
@@ -2588,6 +3613,8 @@
     dialogueState.currentExpression = tree[0].expr;
     dialogueState.scrollOffset = 0;
     dialogueState.isDoorInspection = false;
+    dialogueState.choiceIndex = 0;
+    dialogueState.activeChoices = null;
 
     npc.isEngaged = true;
     const dx = hero.x - npc.x, dy = hero.y - npc.y;
@@ -2597,6 +3624,7 @@
       npc.dir = dy > 0 ? 0 : 1;
     }
 
+    updateItemBadge();
     playUiConfirm();
   }
 
@@ -2617,6 +3645,8 @@
     dialogueState.currentExpression = expr;
     dialogueState.scrollOffset = 0;
     dialogueState.isDoorInspection = isDoor;
+    dialogueState.choiceIndex = 0;
+    dialogueState.activeChoices = null;
     playUiConfirm();
   }
 
@@ -2632,7 +3662,34 @@
       if (fullLines.length > 6) {
         dialogueState.scrollOffset = fullLines.length - 6;
       }
+      if (currentLine.choices) {
+        const active = currentLine.choices.filter(c => !c.condition || c.condition());
+        if (active.length > 0) {
+          dialogueState.activeChoices = active;
+          dialogueState.choiceIndex = 0;
+        }
+      }
     } else {
+      if (dialogueState.activeChoices && dialogueState.activeChoices.length > 0) {
+        const choice = dialogueState.activeChoices[dialogueState.choiceIndex];
+        if (choice.onSelect) choice.onSelect();
+        if (choice.nextExpr) dialogueState.currentExpression = choice.nextExpr;
+        if (choice.nextLines && choice.nextLines.length > 0) {
+          dialogueState.lines = choice.nextLines;
+          dialogueState.lineIndex = 0;
+          dialogueState.charIndex = 0;
+          dialogueState.crawlTimer = 0;
+          dialogueState.isComplete = false;
+          dialogueState.scrollOffset = 0;
+          dialogueState.activeChoices = null;
+          dialogueState.choiceIndex = 0;
+          playUiConfirm();
+        } else {
+          closeDialogue();
+        }
+        return;
+      }
+
       dialogueState.lineIndex++;
       if (dialogueState.lineIndex < dialogueState.lines.length) {
         dialogueState.charIndex = 0;
@@ -2641,6 +3698,8 @@
         dialogueState.currentExpression = dialogueState.lines[dialogueState.lineIndex].expr;
         dialogueState.mouthFlap = false;
         dialogueState.scrollOffset = 0;
+        dialogueState.activeChoices = null;
+        dialogueState.choiceIndex = 0;
       } else {
         closeDialogue();
       }
@@ -2654,7 +3713,7 @@
     if (!dialogueState.isDoorInspection && npc) {
       if (npc.id === 'nyah') {
         flags.talkedToNyah = true;
-        flags.nyahRantedAboutElf = true;
+        if (flags.talkedToElf) flags.nyahRantedAboutElf = true;
       } else if (npc.id === 'lumina') {
         flags.talkedToElf = true;
       }
@@ -2662,9 +3721,11 @@
 
     dialogueState.active = false;
     dialogueState.npc = null;
+    dialogueState.activeChoices = null;
     dialogueState.isDoorInspection = false;
     dialogueState.cooldownTimer = 0.22;
     if (npc && npc.isEngaged) npc.isEngaged = false;
+    updateItemBadge();
     playUiConfirm();
   }
 
@@ -2731,44 +3792,47 @@
     }
   }
 
-  const LANTERNS = [
-    { x: 192 + 8, y: 176 + 6 },
-    { x: 304 + 8, y: 176 + 6 },
-    { x: 192 + 8, y: 240 + 6 },
-    { x: 304 + 8, y: 240 + 6 },
-    { x: 352 + 8, y: 144 + 6 },
-    { x: 432 + 8, y: 144 + 6 },
-    { x: 128 + 8, y: 192 + 6 },
-    { x: 208 + 8, y: 368 + 6 },
-    { x: 288 + 8, y: 368 + 6 }
-  ];
+  const C_GOLD_HI = vceColor(7, 6, 1);
+  const C_GOLD_MID = vceColor(6, 5, 0);
+  const C_GOLD_SHD = vceColor(4, 3, 0);
 
   function renderFrame(ctx) {
+    const curMap = getActiveMap();
     const atlas = flags.isTwilight ? tileCanvasesTwilight : tileCanvasesMidday;
     const camX = Math.round(camera.x);
     const camY = Math.round(camera.y);
 
     const startTx = Math.max(0, Math.floor(camX / TILE_SZ));
-    const endTx = Math.min(MAP_W - 1, Math.floor((camX + 256 + 15) / TILE_SZ));
+    const endTx = Math.min(curMap.width - 1, Math.floor((camX + 256 + 15) / TILE_SZ));
     const startTy = Math.max(0, Math.floor(camY / TILE_SZ));
-    const endTy = Math.min(MAP_H - 1, Math.floor((camY + 224 + 15) / TILE_SZ));
+    const endTy = Math.min(curMap.height - 1, Math.floor((camY + 224 + 15) / TILE_SZ));
 
     const fountainFrame = Math.floor(Date.now() / 120) % 4;
+    const hearthFrame = Math.floor(Date.now() / 200) % 2;
+
+    // Fill screen background black (for smaller centered interior rooms)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 256, 224);
 
     // PASS 1: Ground & Base Walls
     for (let ty = startTy; ty <= endTy; ty++) {
       for (let tx = startTx; tx <= endTx; tx++) {
-        const idx = ty * MAP_W + tx;
-        let gId = groundLayer[idx];
+        const idx = ty * curMap.width + tx;
+        let gId = curMap.groundLayer[idx];
         if (gId === 'waterRim') {
           gId = 'waterRim' + fountainFrame;
+        } else if (gId === 'hearthFire') {
+          gId = 'hearthFire' + hearthFrame;
         }
         const gTile = atlas[gId];
         if (gTile) {
           ctx.drawImage(gTile, tx * TILE_SZ - camX, ty * TILE_SZ - camY);
         }
-        const sId = structLayer[idx];
+        let sId = curMap.structLayer[idx];
         if (sId && sId !== 'fountainSpire' && sId !== 'lampPost') {
+          if (sId === 'hearthFire0' || sId === 'hearthFire1') {
+            sId = 'hearthFire' + hearthFrame;
+          }
           const sTile = atlas[sId];
           if (sTile) {
             ctx.drawImage(sTile, tx * TILE_SZ - camX, ty * TILE_SZ - camY);
@@ -2795,18 +3859,25 @@
       }
     });
 
-    // NPCs
+    // NPCs (Filtered to active map)
     npcs.forEach(n => {
+      if (n.mapId !== activeMapId || n.active === false) return;
+
       let sprKey = n.id + '0';
       if (n.id === 'nyah') {
         const isTwitching = n.earTimer > 3.0 && n.earTimer < 3.35;
         sprKey = isTwitching ? 'nyahIdle1' : 'nyahIdle0';
+      } else if (n.id === 'lumina') {
+        sprKey = 'lumina0';
       } else if (n.id === 'elder') {
         sprKey = (n.dir === 3) ? 'elderRight' : 'elder0';
       } else if (n.id === 'guard') {
         sprKey = (n.dir === 3) ? 'guardRight' : 'guard0';
       } else if (n.id === 'child') {
         sprKey = (n.dir === 3) ? 'childRight' : 'child0';
+      } else if (n.id === 'seagull') {
+        const flap = Math.floor(Date.now() / 150) % 2;
+        sprKey = (n.dir === 3) ? ('seagullRight' + flap) : ('seagull' + flap);
       }
 
       renderList.push({
@@ -2818,17 +3889,20 @@
       });
     });
 
-    // Fountain Spire Mid-Prop
-    renderList.push({
-      yBaseline: 13 * TILE_SZ + 12,
-      draw: () => {
-        const spr = atlas['fountainSpire' + fountainFrame] || atlas['fountainSpire'];
-        if (spr) ctx.drawImage(spr, 15 * TILE_SZ - camX, 13 * TILE_SZ - camY);
-      }
-    });
+    // Fountain Spire Mid-Prop (Exterior Only)
+    if (activeMapId === 'aldenor_exterior') {
+      renderList.push({
+        yBaseline: 13 * TILE_SZ + 12,
+        draw: () => {
+          const spr = atlas['fountainSpire' + fountainFrame] || atlas['fountainSpire'];
+          if (spr) ctx.drawImage(spr, 15 * TILE_SZ - camX, 13 * TILE_SZ - camY);
+        }
+      });
+    }
 
-    // Lamp Posts
-    LANTERNS.forEach(l => {
+    // Lamp Posts on Active Map
+    const mapLanterns = curMap.lanterns || [];
+    mapLanterns.forEach(l => {
       renderList.push({
         yBaseline: l.y + 10,
         draw: () => {
@@ -2845,8 +3919,8 @@
     // PASS 3: Overhead Layer & Particles
     for (let ty = startTy; ty <= endTy; ty++) {
       for (let tx = startTx; tx <= endTx; tx++) {
-        const idx = ty * MAP_W + tx;
-        const oId = overheadLayer[idx];
+        const idx = ty * curMap.width + tx;
+        const oId = curMap.overheadLayer[idx];
         if (oId) {
           const oTile = atlas[oId];
           if (oTile) {
@@ -2862,28 +3936,78 @@
       ctx.fillRect(Math.round(p.x - camX), Math.round(p.y - camY), p.size, p.size);
     });
 
-    // Twilight Radial Lantern Light Cones
+    // Twilight Radial Light Cones / Ambient Lighting
     if (flags.isTwilight) {
       ctx.save();
-      ctx.fillStyle = 'rgba(10, 8, 34, 0.45)';
-      ctx.fillRect(0, 0, 256, 224);
+      if (activeMapId === 'aldenor_exterior') {
+        ctx.fillStyle = 'rgba(10, 8, 34, 0.45)';
+        ctx.fillRect(0, 0, 256, 224);
 
-      ctx.globalCompositeOperation = 'lighter';
-      LANTERNS.forEach(l => {
-        const lx = Math.round(l.x - camX);
-        const ly = Math.round(l.y - camY);
-        if (lx >= -40 && lx <= 296 && ly >= -40 && ly <= 264) {
-          const grad = ctx.createRadialGradient(lx, ly, 2, lx, ly, 38);
-          grad.addColorStop(0, 'rgba(255, 230, 140, 0.65)');
-          grad.addColorStop(0.35, 'rgba(255, 180, 80, 0.35)');
-          grad.addColorStop(1, 'rgba(255, 140, 40, 0)');
+        ctx.globalCompositeOperation = 'lighter';
+        mapLanterns.forEach(l => {
+          const lx = Math.round(l.x - camX);
+          const ly = Math.round(l.y - camY);
+          if (lx >= -40 && lx <= 296 && ly >= -40 && ly <= 264) {
+            const grad = ctx.createRadialGradient(lx, ly, 2, lx, ly, 38);
+            grad.addColorStop(0, 'rgba(255, 230, 140, 0.65)');
+            grad.addColorStop(0.35, 'rgba(255, 180, 80, 0.35)');
+            grad.addColorStop(1, 'rgba(255, 140, 40, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(lx, ly, 38, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      } else {
+        // Warm interior evening ambience
+        ctx.fillStyle = 'rgba(32, 18, 12, 0.22)';
+        ctx.fillRect(0, 0, 256, 224);
+
+        ctx.globalCompositeOperation = 'lighter';
+        if (curMap.hearthPos) {
+          const hx = Math.round(curMap.hearthPos.x - camX);
+          const hy = Math.round(curMap.hearthPos.y - camY);
+          const grad = ctx.createRadialGradient(hx, hy, 4, hx, hy, 48);
+          grad.addColorStop(0, 'rgba(255, 190, 90, 0.40)');
+          grad.addColorStop(0.5, 'rgba(255, 120, 40, 0.18)');
+          grad.addColorStop(1, 'rgba(255, 80, 20, 0)');
           ctx.fillStyle = grad;
           ctx.beginPath();
-          ctx.arc(lx, ly, 38, 0, Math.PI * 2);
+          ctx.arc(hx, hy, 48, 0, Math.PI * 2);
           ctx.fill();
         }
-      });
+      }
       ctx.restore();
+    }
+
+    // Key-Item HUD Box in Top-Left (x: 6, y: 6)
+    if (flags.inventory) {
+      const iconSpr = atlas['icon_' + flags.inventory];
+      if (iconSpr) {
+        ctx.fillStyle = 'rgba(14, 18, 36, 0.94)';
+        ctx.fillRect(6, 6, 20, 20);
+        ctx.fillStyle = C_GOLD_HI;
+        ctx.fillRect(6, 6, 20, 1);
+        ctx.fillRect(6, 6, 1, 20);
+        ctx.fillStyle = C_GOLD_SHD;
+        ctx.fillRect(6, 25, 20, 1);
+        ctx.fillRect(25, 6, 1, 20);
+        ctx.drawImage(iconSpr, 8, 8);
+      }
+    }
+
+    // Hardware-Style Horizontal Scanline Shutter Wipe Transition
+    if (transitionState.active) {
+      const p = Math.min(1, Math.max(0, transitionState.timer / transitionState.duration));
+      const ratio = p < 0.5 ? (p * 2) : ((1 - p) * 2);
+      ctx.fillStyle = '#000000';
+      const numSlices = 14;
+      const sliceH = 16;
+      const coverH = Math.ceil((sliceH / 2) * ratio);
+      for (let i = 0; i < numSlices; i++) {
+        ctx.fillRect(0, i * sliceH, 256, coverH);
+        ctx.fillRect(0, (i + 1) * sliceH - coverH, 256, coverH);
+      }
     }
 
     // PASS 4: Dialogue Frame & 64x64 Cut-in
@@ -2897,10 +4021,6 @@
 
     ctx.fillStyle = 'rgba(14, 18, 36, 0.96)';
     ctx.fillRect(bx, by, bw, bh);
-
-    const C_GOLD_HI = vceColor(7, 6, 1);
-    const C_GOLD_MID = vceColor(6, 5, 0);
-    const C_GOLD_SHD = vceColor(4, 3, 0);
 
     ctx.fillStyle = C_GOLD_HI;
     ctx.fillRect(bx, by, bw, 2);
@@ -2954,10 +4074,11 @@
 
     const curLine = dialogueState.lines[dialogueState.lineIndex];
     if (curLine) {
+      const hasChoices = dialogueState.isComplete && dialogueState.activeChoices && dialogueState.activeChoices.length > 0;
       const displayedText = curLine.text.substring(0, dialogueState.charIndex);
       const wrappedLines = wrapDialogueText(displayedText, 28);
 
-      const maxVisible = 6;
+      const maxVisible = hasChoices ? Math.max(1, 6 - (dialogueState.activeChoices.length * 1) - 1) : 6;
       const scroll = Math.max(0, Math.min(dialogueState.scrollOffset, Math.max(0, wrappedLines.length - maxVisible)));
       const visibleLines = wrappedLines.slice(scroll, scroll + maxVisible);
 
@@ -2971,13 +4092,28 @@
         drawPixelText(ctx, l, nameX, textY, '#ffffff', OUTLINE_COLOR);
         textY += 9;
       });
+
+      if (hasChoices) {
+        textY += 2;
+        dialogueState.activeChoices.forEach((ch, idx) => {
+          const isSelected = (idx === dialogueState.choiceIndex);
+          const isBlink = Math.floor(Date.now() / 180) % 2 === 0;
+          if (isSelected && isBlink) {
+            drawPixelText(ctx, '>', nameX, textY, C_GOLD_HI, OUTLINE_COLOR);
+          }
+          const col = isSelected ? '#ffffff' : '#8e98aa';
+          drawPixelText(ctx, ch.label, nameX + 8, textY, col, OUTLINE_COLOR);
+          textY += 9;
+        });
+      }
+
       ctx.restore();
 
-      if (scroll > 0) {
+      if (!hasChoices && scroll > 0) {
         drawGlyph(ctx, '▲', bx + bw - 14, by + 5, C_GOLD_HI);
       }
 
-      if (dialogueState.isComplete) {
+      if (dialogueState.isComplete && !hasChoices) {
         if (Math.floor(Date.now() / 320) % 2 === 0) {
           drawGlyph(ctx, '▼', bx + bw - 14, by + bh - 11, C_GOLD_HI);
         }
@@ -3044,6 +4180,7 @@
     flags.isTwilight = !flags.isTwilight;
     const lbl = document.getElementById('lblDayNight');
     if (lbl) lbl.textContent = flags.isTwilight ? 'Twilight' : 'Midday';
+    updateNpcSchedules();
     playUiConfirm();
   }
 
@@ -3079,13 +4216,52 @@
       dialogueState.cooldownTimer -= dt;
     }
 
-    if (dialogueState.active) {
-      if (consumeJustPressed('ArrowUp') || consumeJustPressed('KeyW')) {
-        if (dialogueState.scrollOffset > 0) dialogueState.scrollOffset--;
+    // Hardware-Style Scanline Shutter Wipe Transition
+    if (transitionState.active) {
+      transitionState.timer += dt;
+      if (!transitionState.halfwayDone && transitionState.timer >= transitionState.duration * 0.5) {
+        transitionState.halfwayDone = true;
+        activeMapId = transitionState.targetMap;
+        window.collisionMap = getActiveMap().collisionMap;
+        hero.x = transitionState.spawnX;
+        hero.y = transitionState.spawnY;
+        hero.dir = transitionState.spawnDir;
+        const curM = getActiveMap();
+        const mapW = curM.width * TILE_SZ;
+        const mapH = curM.height * TILE_SZ;
+        camera.x = (mapW < 256) ? Math.floor((mapW - 256) / 2) : Math.max(0, Math.min(mapW - 256, hero.x + 8 - 128));
+        camera.y = (mapH < 224) ? Math.floor((mapH - 224) / 2) : Math.max(0, Math.min(mapH - 224, hero.y + 8 - 112));
+        updateNpcSchedules();
+        updateSpatialFountain(hero.x, hero.y);
       }
-      if (consumeJustPressed('ArrowDown') || consumeJustPressed('KeyS')) {
-        const fullLines = wrapDialogueText(dialogueState.lines[dialogueState.lineIndex].text, 28);
-        if (dialogueState.scrollOffset < fullLines.length - 6) dialogueState.scrollOffset++;
+      if (transitionState.timer >= transitionState.duration) {
+        transitionState.active = false;
+      }
+      return;
+    }
+
+    if (dialogueState.active) {
+      if (dialogueState.activeChoices && dialogueState.activeChoices.length > 0) {
+        if (consumeJustPressed('ArrowUp') || consumeJustPressed('KeyW')) {
+          if (dialogueState.choiceIndex > 0) {
+            dialogueState.choiceIndex--;
+            playSfxBlip(900);
+          }
+        }
+        if (consumeJustPressed('ArrowDown') || consumeJustPressed('KeyS')) {
+          if (dialogueState.choiceIndex < dialogueState.activeChoices.length - 1) {
+            dialogueState.choiceIndex++;
+            playSfxBlip(900);
+          }
+        }
+      } else {
+        if (consumeJustPressed('ArrowUp') || consumeJustPressed('KeyW')) {
+          if (dialogueState.scrollOffset > 0) dialogueState.scrollOffset--;
+        }
+        if (consumeJustPressed('ArrowDown') || consumeJustPressed('KeyS')) {
+          const fullLines = wrapDialogueText(dialogueState.lines[dialogueState.lineIndex].text, 28);
+          if (dialogueState.scrollOffset < fullLines.length - 6) dialogueState.scrollOffset++;
+        }
       }
 
       const curLine = dialogueState.lines[dialogueState.lineIndex];
@@ -3103,6 +4279,13 @@
           if (dialogueState.charIndex >= curLine.text.length) {
             dialogueState.isComplete = true;
             dialogueState.mouthFlap = false;
+            if (curLine.choices) {
+              const active = curLine.choices.filter(c => !c.condition || c.condition());
+              if (active.length > 0) {
+                dialogueState.activeChoices = active;
+                dialogueState.choiceIndex = 0;
+              }
+            }
           }
           const currentWrapped = wrapDialogueText(curLine.text.substring(0, dialogueState.charIndex), 28);
           if (currentWrapped.length > 6) {
@@ -3165,11 +4348,32 @@
       hero.animTimer = 0;
     }
 
-    hero.x = Math.max(16, Math.min(MAP_PX_W - 32, hero.x));
-    hero.y = Math.max(16, Math.min(MAP_PX_H - 32, hero.y));
+    const curMap = getActiveMap();
+    const mapPxW = curMap.width * TILE_SZ;
+    const mapPxH = curMap.height * TILE_SZ;
+    hero.x = Math.max(16, Math.min(mapPxW - 32, hero.x));
+    hero.y = Math.max(16, Math.min(mapPxH - 32, hero.y));
+
+    // Check Interior Exit Mat tile trigger
+    const heroTx = Math.floor((hero.x + 8) / TILE_SZ);
+    const heroTy = Math.floor((hero.y + 12) / TILE_SZ);
+    if (heroTy >= 0 && heroTy < curMap.height && heroTx >= 0 && heroTx < curMap.width) {
+      const curTile = curMap.groundLayer[heroTy * curMap.width + heroTx];
+      if (curTile === 'exitMat') {
+        if (activeMapId === 'manor_parlor') {
+          startMapTransition('aldenor_exterior', 24 * 16, 6 * 16, 0);
+        } else if (activeMapId === 'lumina_workshop') {
+          startMapTransition('aldenor_exterior', 6 * 16, 10 * 16, 0);
+        } else if (activeMapId === 'harbor_tavern') {
+          startMapTransition('aldenor_exterior', 24 * 16, 21 * 16, 0);
+        }
+      }
+    }
 
     // NPC Patrols & AI
     npcs.forEach(n => {
+      if (n.mapId !== activeMapId || n.active === false) return;
+
       if (n.id === 'nyah') {
         n.earTimer = (n.earTimer || 0) + dt;
         if (n.earTimer > 3.0) {
@@ -3215,6 +4419,7 @@
 
       let foundNpc = false;
       for (const n of npcs) {
+        if (n.mapId !== activeMapId || n.active === false) continue;
         const dist = Math.hypot(n.x - targetX, n.y - targetY);
         if (dist <= 22) {
           startDialogue(n);
@@ -3223,7 +4428,7 @@
         }
       }
 
-      // Check Door Inspection if no NPC in range
+      // Check Door Interaction if no NPC in range
       if (!foundNpc && dialogueState.cooldownTimer <= 0) {
         let faceX = hero.x + 8, faceY = hero.y + 12;
         if (hero.dir === 0) faceY += 16;
@@ -3234,50 +4439,75 @@
         const tileX = Math.floor(faceX / TILE_SZ);
         const tileY = Math.floor(faceY / TILE_SZ);
 
-        if (tileY === 5 && (tileX === 24 || tileX === 25)) {
-          startCustomDialogue(
-            'NYAH',
-            'bratty',
-            "HEY!! don't go rattling the manor doors, Master! the lord is out and nyah is right here on the steps anyway!!",
-            'nyah',
-            true
-          );
-        } else if (tileY === 9 && tileX === 6) {
-          startCustomDialogue(
-            'LUMINA',
-            'friendly',
-            "My indoor workshop is locked while I run the market counter over here!",
-            'lumina',
-            true
-          );
-        } else if (tileY === 20 && tileX === 24) {
-          startCustomDialogue(
-            'GUARD',
-            'guard',
-            "The Harbor Tavern doesn't open its kegs until late night, traveler.",
-            'guard',
-            true
-          );
+        if (activeMapId === 'aldenor_exterior') {
+          if (tileY === 5 && (tileX === 24 || tileX === 25)) {
+            if (flags.manorUnlocked) {
+              startMapTransition('manor_parlor', 8 * 16 - 8, 11 * 16, 1);
+            } else {
+              startCustomDialogue(
+                'NYAH',
+                'bratty',
+                "HEY!! don't go rattling the manor doors, Master! the lord is out and nyah is right here on the steps anyway!!",
+                'nyah',
+                true
+              );
+            }
+          } else if (tileY === 9 && tileX === 6) {
+            if (flags.isTwilight || flags.inventory === 'silver_teacup') {
+              startMapTransition('lumina_workshop', 7 * 16 - 8, 10 * 16, 1);
+            } else {
+              startCustomDialogue(
+                'LUMINA',
+                'friendly',
+                "My indoor workshop is locked while I run the market counter over here!",
+                'lumina',
+                true
+              );
+            }
+          } else if (tileY === 20 && tileX === 24) {
+            if (flags.isTwilight || flags.tavern_pass || flags.seagullSolved) {
+              startMapTransition('harbor_tavern', 8 * 16 - 8, 11 * 16, 1);
+            } else {
+              startCustomDialogue(
+                'GUARD',
+                'guard',
+                "The Harbor Tavern doesn't open its kegs until late night, traveler.",
+                'guard',
+                true
+              );
+            }
+          }
         }
       }
     }
 
     // Particles & Spawners
-    spawnChimneySmoke(24 * TILE_SZ, 3 * TILE_SZ);
-    spawnChimneySmoke(6 * TILE_SZ, 7 * TILE_SZ);
-    spawnFountainSparkle(248, 204);
-    spawnTwilightMote();
+    if (activeMapId === 'aldenor_exterior') {
+      spawnChimneySmoke(24 * TILE_SZ, 3 * TILE_SZ);
+      spawnChimneySmoke(6 * TILE_SZ, 7 * TILE_SZ);
+      spawnFountainSparkle(248, 204);
+      spawnTwilightMote();
+    }
     updateParticles(dt);
 
-    // Camera Smooth Lerp & Integer Snapping
-    const targetCamX = hero.x + 8 - 128;
-    const targetCamY = hero.y + 8 - 112;
-    camera.x += (targetCamX - camera.x) * 0.12;
-    camera.y += (targetCamY - camera.y) * 0.12;
-    camera.x = Math.max(0, Math.min(MAP_PX_W - 256, camera.x));
-    camera.y = Math.max(0, Math.min(MAP_PX_H - 224, camera.y));
+    // Camera Smooth Lerp & Centering for small rooms
+    if (mapPxW <= 256) {
+      camera.x = Math.floor((mapPxW - 256) / 2);
+    } else {
+      const targetCamX = hero.x + 8 - 128;
+      camera.x += (targetCamX - camera.x) * 0.12;
+      camera.x = Math.max(0, Math.min(mapPxW - 256, camera.x));
+    }
 
-    // Spatial Fountain Volume
+    if (mapPxH <= 224) {
+      camera.y = Math.floor((mapPxH - 224) / 2);
+    } else {
+      const targetCamY = hero.y + 8 - 112;
+      camera.y += (targetCamY - camera.y) * 0.12;
+      camera.y = Math.max(0, Math.min(mapPxH - 224, camera.y));
+    }
+
+    // Spatial Fountain / Hearth Volume
     updateSpatialFountain(hero.x, hero.y);
   }
 
@@ -3351,7 +4581,10 @@
   window.collisionMap = collisionMap;
 
   buildTileAtlases();
-  buildAldenorMap();
+  buildAllMaps();
+  updateNpcSchedules();
+  updateItemBadge();
+  window.collisionMap = getActiveMap().collisionMap;
   resizeViewport();
   requestAnimationFrame(gameLoop);
 
