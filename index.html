@@ -180,6 +180,10 @@
       image-rendering: pixelated;
       display: block;
       background: #000;
+      transition: filter 0.2s ease;
+    }
+    #viewport.crt-active #gameCanvas {
+      filter: contrast(1.10) brightness(1.10) saturate(1.18);
     }
     #crtOverlay {
       position: absolute;
@@ -195,26 +199,46 @@
     #crtOverlay.crt-active {
       opacity: 1;
       background: 
-        repeating-linear-gradient(
+        radial-gradient(
+          ellipse 120% 100% at 50% -20%,
+          rgba(255, 255, 255, 0.10) 0%,
+          rgba(255, 255, 255, 0) 55%
+        ),
+        linear-gradient(
           to bottom,
-          rgba(0, 0, 0, 0) 0px,
-          rgba(0, 0, 0, 0) 1px,
-          rgba(0, 0, 0, 0.32) 2px,
-          rgba(0, 0, 0, 0.32) 3px
+          rgba(255, 255, 255, 0.08) 0%,
+          rgba(0, 0, 0, 0) 28%,
+          rgba(0, 0, 0, 0.52) 60%,
+          rgba(0, 0, 0, 0.76) 100%
         ),
         repeating-linear-gradient(
           to right,
-          rgba(255, 0, 0, 0.04) 0px,
-          rgba(0, 255, 0, 0.04) 1px,
-          rgba(0, 0, 255, 0.04) 2px,
-          rgba(0, 0, 0, 0.08) 3px
+          rgba(255, 40, 40, 0.09) 0px,
+          rgba(255, 40, 40, 0.09) 1px,
+          rgba(40, 255, 40, 0.09) 1px,
+          rgba(40, 255, 40, 0.09) 2px,
+          rgba(40, 80, 255, 0.09) 2px,
+          rgba(40, 80, 255, 0.09) 3px
         ),
         radial-gradient(
           ellipse at center,
-          rgba(0,0,0,0) 65%,
-          rgba(0,0,0,0.45) 100%
+          rgba(0, 0, 0, 0) 70%,
+          rgba(0, 0, 0, 0.25) 90%,
+          rgba(0, 0, 0, 0.55) 100%
         );
-      box-shadow: inset 0 0 16px rgba(0,0,0,0.7);
+      background-size:
+        100% 100%,
+        100% calc(100% / 224),
+        3px 100%,
+        100% 100%;
+      background-repeat:
+        no-repeat,
+        repeat-y,
+        repeat-x,
+        no-repeat;
+      box-shadow: 
+        inset 0 0 16px rgba(0, 0, 0, 0.75),
+        inset 0 0 2px rgba(255, 255, 255, 0.15);
     }
 
     /* Bottom Control Bar */
@@ -347,7 +371,7 @@
       <button id="btnDayNight" class="hud-btn" title="Toggle Day/Twilight (T)">
         <span>[T]</span> <span id="lblDayNight">Midday</span>
       </button>
-      <button id="btnCrt" class="hud-btn" title="Toggle High-DPI CRT Filter (C)">
+      <button id="btnCrt" class="hud-btn active" title="Toggle High-DPI CRT Filter (C)">
         <span>[C]</span> <span>CRT</span>
       </button>
       <button id="btnMute" class="hud-btn" title="Toggle HuC6280 Audio (M)">
@@ -369,7 +393,7 @@
   </header>
 
   <div id="screenWrapper">
-    <div id="viewport">
+    <div id="viewport" class="crt-active">
       <canvas id="gameCanvas" width="256" height="224"></canvas>
       <div id="crtOverlay" class="crt-active"></div>
     </div>
@@ -5514,7 +5538,11 @@
 
   function toggleCrt() {
     const overlay = document.getElementById('crtOverlay');
-    if (overlay) overlay.classList.toggle('crt-active');
+    const viewport = document.getElementById('viewport');
+    const btn = document.getElementById('btnCrt');
+    const isActive = overlay ? overlay.classList.toggle('crt-active') : false;
+    if (viewport) viewport.classList.toggle('crt-active', isActive);
+    if (btn) btn.classList.toggle('active', isActive);
     playUiConfirm();
   }
 
