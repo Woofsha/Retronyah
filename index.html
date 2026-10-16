@@ -2892,6 +2892,7 @@
     }
     for (let x = 0; x < m.width; x++) {
       if (x === 7 || x === 8) {
+        setMapTile(m, x, m.height - 2, 'exitMat', null, null, 0);
         setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
       } else {
         setMapTile(m, x, m.height - 1, 'wallBase', 'wallMid', null, 1);
@@ -2943,6 +2944,7 @@
     }
     for (let x = 0; x < m.width; x++) {
       if (x === 6 || x === 7) {
+        setMapTile(m, x, m.height - 2, 'exitMat', null, null, 0);
         setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
       } else {
         setMapTile(m, x, m.height - 1, 'wallBase', 'timberWall', null, 1);
@@ -2984,6 +2986,7 @@
     }
     for (let x = 0; x < m.width; x++) {
       if (x === 7 || x === 8) {
+        setMapTile(m, x, m.height - 2, 'exitMat', null, null, 0);
         setMapTile(m, x, m.height - 1, 'exitMat', null, null, 0);
       } else {
         setMapTile(m, x, m.height - 1, 'wallBase', 'timberWall', null, 1);
@@ -4351,15 +4354,24 @@
     const curMap = getActiveMap();
     const mapPxW = curMap.width * TILE_SZ;
     const mapPxH = curMap.height * TILE_SZ;
-    hero.x = Math.max(16, Math.min(mapPxW - 32, hero.x));
-    hero.y = Math.max(16, Math.min(mapPxH - 32, hero.y));
+    hero.x = Math.max(8, Math.min(mapPxW - 24, hero.x));
+    hero.y = Math.max(8, Math.min(mapPxH - 20, hero.y));
 
     // Check Interior Exit Mat tile trigger
-    const heroTx = Math.floor((hero.x + 8) / TILE_SZ);
-    const heroTy = Math.floor((hero.y + 12) / TILE_SZ);
-    if (heroTy >= 0 && heroTy < curMap.height && heroTx >= 0 && heroTx < curMap.width) {
-      const curTile = curMap.groundLayer[heroTy * curMap.width + heroTx];
-      if (curTile === 'exitMat') {
+    if (activeMapId !== 'aldenor_exterior') {
+      const heroTx = Math.floor((hero.x + 8) / TILE_SZ);
+      const heroTy = Math.floor((hero.y + 12) / TILE_SZ);
+      const curTile = (heroTy >= 0 && heroTy < curMap.height && heroTx >= 0 && heroTx < curMap.width)
+        ? curMap.groundLayer[heroTy * curMap.width + heroTx]
+        : null;
+
+      const isExitMat = (curTile === 'exitMat');
+      const isExitDoorArea = (heroTy >= curMap.height - 2) && (
+        (activeMapId === 'lumina_workshop' && (heroTx === 6 || heroTx === 7)) ||
+        (activeMapId !== 'lumina_workshop' && (heroTx === 7 || heroTx === 8))
+      );
+
+      if ((isExitMat || isExitDoorArea) && (hero.dir === 0 || isExitMat)) {
         if (activeMapId === 'manor_parlor') {
           startMapTransition('aldenor_exterior', 24 * 16, 6 * 16, 0);
         } else if (activeMapId === 'lumina_workshop') {
@@ -4442,7 +4454,7 @@
         if (activeMapId === 'aldenor_exterior') {
           if (tileY === 5 && (tileX === 24 || tileX === 25)) {
             if (flags.manorUnlocked) {
-              startMapTransition('manor_parlor', 8 * 16 - 8, 11 * 16, 1);
+              startMapTransition('manor_parlor', 8 * 16 - 8, 10 * 16, 1);
             } else {
               startCustomDialogue(
                 'NYAH',
@@ -4454,7 +4466,7 @@
             }
           } else if (tileY === 9 && tileX === 6) {
             if (flags.isTwilight || flags.inventory === 'silver_teacup') {
-              startMapTransition('lumina_workshop', 7 * 16 - 8, 10 * 16, 1);
+              startMapTransition('lumina_workshop', 7 * 16 - 8, 8 * 16, 1);
             } else {
               startCustomDialogue(
                 'LUMINA',
@@ -4466,7 +4478,7 @@
             }
           } else if (tileY === 20 && tileX === 24) {
             if (flags.isTwilight || flags.tavern_pass || flags.seagullSolved) {
-              startMapTransition('harbor_tavern', 8 * 16 - 8, 11 * 16, 1);
+              startMapTransition('harbor_tavern', 8 * 16 - 8, 10 * 16, 1);
             } else {
               startCustomDialogue(
                 'GUARD',
@@ -4476,6 +4488,18 @@
                 true
               );
             }
+          }
+        } else if (activeMapId === 'lumina_workshop') {
+          if (tileY >= curMap.height - 2 || (hero.dir === 0 && hero.y >= (curMap.height - 3) * 16)) {
+            startMapTransition('aldenor_exterior', 6 * 16, 10 * 16, 0);
+          }
+        } else if (activeMapId === 'manor_parlor') {
+          if (tileY >= curMap.height - 2 || (hero.dir === 0 && hero.y >= (curMap.height - 3) * 16)) {
+            startMapTransition('aldenor_exterior', 24 * 16, 6 * 16, 0);
+          }
+        } else if (activeMapId === 'harbor_tavern') {
+          if (tileY >= curMap.height - 2 || (hero.dir === 0 && hero.y >= (curMap.height - 3) * 16)) {
+            startMapTransition('aldenor_exterior', 24 * 16, 21 * 16, 0);
           }
         }
       }
