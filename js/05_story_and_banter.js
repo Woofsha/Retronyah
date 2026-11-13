@@ -1219,12 +1219,23 @@
     }
 
     // Boss Defeats & Relic Rewards
+    const unlockSpireIfAllRelics = () => {
+      if ((flags.bellForkFound || hasItem('bell_tuning_fork')) &&
+          (flags.bellClapperFound || hasItem('bell_clapper')) &&
+          (flags.sanctumCrestFound || hasItem('sanctum_crest'))) {
+        dungeonState.spireGateOpen = true;
+        buildAllMaps();
+        window.collisionMap = getActiveMap().collisionMap;
+      }
+    };
+
     if (m.type === 'boss_golem') {
       flags.bossGolemDefeated = true;
       flags.bellForkFound = true;
       addItem('bell_tuning_fork', 1);
       if (!hasItem('crushers_core')) addItem('crushers_core', 1);
       if (!nyahCompanion.perks.includes('dual_spin')) nyahCompanion.perks.push('dual_spin');
+      unlockSpireIfAllRelics();
       playSfxLevelUp();
       autoSave();
       startCustomDialogueTree([
@@ -1247,6 +1258,7 @@
       setTimeOfDay(false, { silent: true });
       // setTimeOfDay() early-returns when it is already midday, so rebuild the
       // braziers explicitly. Otherwise a daylight kill would leave dark bowls.
+      unlockSpireIfAllRelics();
       buildAllMaps();
       window.collisionMap = getActiveMap().collisionMap;
       autoSave();
@@ -1261,6 +1273,7 @@
       // dragon sleeping on Clerici's shrine is the right owner for it.
       if (!hasItem('clerici_mail')) addItem('clerici_mail', 1);
       if (!nyahCompanion.perks.includes('guardians_devotion')) nyahCompanion.perks.push('guardians_devotion');
+      unlockSpireIfAllRelics();
       playSfxLevelUp();
       autoSave();
       startCustomDialogueTree([
@@ -2029,7 +2042,7 @@
         'seagull'
       );
       seagull.x = 144;
-      seagull.y = 240;
+      seagull.y = 256;
       flags.seagullStep = 2;
     } else if (flags.seagullStep === 2) {
       startCustomDialogue(

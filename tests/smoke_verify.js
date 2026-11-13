@@ -651,8 +651,9 @@ check('probe: shadow_guard / boss_eclipse teleport fallback near wall', () => {
     startNewGame();
     titleScreenState.active = false;
     introCinemaState.active = false;
+    flags.bossEclipseCutscene = true;
     YsEngine.setActiveMapId('bell_spire');
-    hero.x = 1 * 16; hero.y = 12 * 16; hero.dir = 3;
+    hero.x = 2 * 16; hero.y = 12 * 16; hero.dir = 3;
     monsters.length = 0;
     monsters.push({ id: 'be', type: 'boss_eclipse', name: 'Eclipse', x: 10 * 16, y: 12 * 16, dir: 0, hp: 500, maxHp: 1800, def: 8, atk: 20, speed: 40, phase: 3, teleportTimer: 0, orbTimer: 5, alive: true, hitTimer: 0, flashTimer: 0 });
     update(0.016);

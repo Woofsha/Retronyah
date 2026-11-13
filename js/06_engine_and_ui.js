@@ -3980,6 +3980,13 @@
   // monster for `seconds` (drawn as a flashing "!" over its head) and then runs
   // the payload. Keeping the payload in a closure means monsters stay transient
   // and are never serialized into a save.
+  function pickOpenTeleportPos(candidates, fallbackX, fallbackY) {
+    for (let i = 0; i < candidates.length; i++) {
+      if (!checkCollision(candidates[i].x, candidates[i].y)) return candidates[i];
+    }
+    return { x: fallbackX, y: fallbackY };
+  }
+
   function telegraphMonsterAttack(m, seconds, fire, radius) {
     m.windup = seconds;
     m.windupTotal = seconds;
@@ -5238,23 +5245,27 @@
             m.dashTimer = 3.3 + Math.random() * 1.5;
             telegraphMonsterAttack(m, 0.35, () => {
               const side = (Math.random() < 0.5) ? -1 : 1;
-              const targetX = hero.x + side * 22;
-              const targetY = hero.y;
-              if (!checkCollision(targetX, targetY)) {
-                m.x = targetX;
-                m.y = targetY;
-                playSfxClaw();
-                enemyProjectiles.push({
-                  x: m.x + 8,
-                  y: m.y + 8,
-                  vx: -side * 110,
-                  vy: 0,
-                  dist: 0,
-                  maxDist: 60,
-                  damage: 30,
-                  color: vceColor(1, 0, 3)
-                });
-              }
+              const dest = pickOpenTeleportPos([
+                { x: hero.x + side * 22, y: hero.y },
+                { x: hero.x - side * 22, y: hero.y },
+                { x: hero.x, y: hero.y + 22 },
+                { x: hero.x, y: hero.y - 22 }
+              ], m.x, m.y);
+              m.x = dest.x;
+              m.y = dest.y;
+              playSfxClaw();
+              const pdx = hero.x - m.x, pdy = hero.y - m.y;
+              const pdist = Math.hypot(pdx, pdy) || 1;
+              enemyProjectiles.push({
+                x: m.x + 8,
+                y: m.y + 8,
+                vx: (pdx / pdist) * 110,
+                vy: (pdy / pdist) * 110,
+                dist: 0,
+                maxDist: 60,
+                damage: 30,
+                color: vceColor(1, 0, 3)
+              });
             });
           } else if (sgdist < 160 && canSeeHero) {
             const nx = m.x + (sgdx / sgdist) * m.speed * dt;
@@ -5347,22 +5358,28 @@
             if (m.teleportTimer <= 0) {
               m.teleportTimer = 3.5;
               telegraphMonsterAttack(m, 0.35, () => {
-                const behindX = hero.x + (hero.dir === 3 ? -24 : (hero.dir === 2 ? 24 : 0));
-                const behindY = hero.y + (hero.dir === 0 ? -24 : (hero.dir === 1 ? 24 : 0));
-                if (!checkCollision(behindX, behindY)) {
-                  m.x = behindX;
-                  m.y = behindY;
-                  playSfxClaw();
-                  spawnFloatingText("PHANTOM STRIKE!", m.x - 20, m.y - 12, vceColor(7, 1, 1));
-                  const pdx = hero.x - m.x, pdy = hero.y - m.y;
-                  const pdist = Math.hypot(pdx, pdy) || 1;
-                  [-0.3, 0, 0.3].forEach(ang => {
-                    const cos = Math.cos(ang), sin = Math.sin(ang);
-                    const vx = ((pdx * cos - pdy * sin) / pdist) * 125;
-                    const vy = ((pdx * sin + pdy * cos) / pdist) * 125;
-                    enemyProjectiles.push({ x: m.x + 8, y: m.y + 8, vx, vy, dist: 0, maxDist: 140, damage: 42, color: vceColor(7, 1, 2) });
-                  });
-                }
+                const bx = (hero.dir === 3 ? -24 : (hero.dir === 2 ? 24 : 0));
+                const by = (hero.dir === 0 ? -24 : (hero.dir === 1 ? 24 : 0));
+                const dest = pickOpenTeleportPos([
+                  { x: hero.x + bx, y: hero.y + by },
+                  { x: hero.x - bx, y: hero.y - by },
+                  { x: hero.x + 24, y: hero.y },
+                  { x: hero.x - 24, y: hero.y },
+                  { x: hero.x, y: hero.y + 24 },
+                  { x: hero.x, y: hero.y - 24 }
+                ], m.x, m.y);
+                m.x = dest.x;
+                m.y = dest.y;
+                playSfxClaw();
+                spawnFloatingText("PHANTOM STRIKE!", m.x - 20, m.y - 12, vceColor(7, 1, 1));
+                const pdx = hero.x - m.x, pdy = hero.y - m.y;
+                const pdist = Math.hypot(pdx, pdy) || 1;
+                [-0.3, 0, 0.3].forEach(ang => {
+                  const cos = Math.cos(ang), sin = Math.sin(ang);
+                  const vx = ((pdx * cos - pdy * sin) / pdist) * 125;
+                  const vy = ((pdx * sin + pdy * cos) / pdist) * 125;
+                  enemyProjectiles.push({ x: m.x + 8, y: m.y + 8, vx, vy, dist: 0, maxDist: 140, damage: 42, color: vceColor(7, 1, 2) });
+                });
               });
             } else if (edist > 24) {
               const nx = m.x + (edx / edist) * (m.speed * 1.3) * dt;
