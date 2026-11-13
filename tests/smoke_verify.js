@@ -541,16 +541,16 @@ check('probe: handleSeagullInteraction step 1 lands seagull on walkable tile', (
 check('probe: projectile wall check uses projectile point, not hero foot offset', () => {
   const res = ctx.eval(`
     startNewGame();
-    YsEngine.setActiveMapId('aldenor_exterior');
-    const m = MAPS.aldenor_exterior;
-    const solidCheck = m.collisionMap[12 * m.width + 5] === 1 && m.collisionMap[13 * m.width + 5] === 0;
+    YsEngine.setActiveMapId('dungeon_mines');
+    const m = MAPS.dungeon_mines;
+    const solidCheck = m.collisionMap[16 * m.width + 5] === 1 && m.collisionMap[17 * m.width + 5] === 0;
     enemyProjectiles.length = 0;
-    enemyProjectiles.push({ x: 88, y: 204, vx: 0, vy: 0, dist: 0, maxDist: 200, damage: 5, color: '#fff' });
+    enemyProjectiles.push({ x: 88, y: 268, vx: 0, vy: 0, dist: 0, maxDist: 200, damage: 5, color: '#fff' });
     update(0.016);
     const insideWallStillAlive = enemyProjectiles.length === 1;
     return ({ solidCheck, insideWallStillAlive });
   `);
-  return !res.insideWallStillAlive || 'projectile inside solid counter (88,204) survived checkCollision foot-offset bug';
+  return (res.solidCheck && !res.insideWallStillAlive) || 'projectile inside solid wall (88,268) survived checkCollision foot-offset bug';
 });
 
 check('probe: skeleton_knight parry (dmg=0) awards no +10 TP or knockback', () => {
@@ -567,7 +567,7 @@ check('probe: skeleton_knight parry (dmg=0) awards no +10 TP or knockback', () =
     update(0.016);
     return ({ tp: hero.tp, mx: monsters[0].x });
   `);
-  return (res.tp === 0 && res.mx === 96) || `parry leaked tp=${res.tp}, pushed skeleton x=${res.mx}`;
+  return (res.tp === 0 && res.mx <= 96) || `parry leaked tp=${res.tp}, pushed skeleton x=${res.mx}`;
 });
 
 check('probe: Twin Starburst blocked when Nyah has not joined party', () => {

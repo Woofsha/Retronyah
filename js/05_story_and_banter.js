@@ -708,6 +708,7 @@
   }
 
   function hasWallBetween(x0, y0, x1, y1) {
+    const sx0 = x0 + 8, sy0 = y0 + 12;
     const dx = x1 - x0;
     const dy = y1 - y0;
     const dist = Math.hypot(dx, dy);
@@ -715,9 +716,7 @@
     const steps = Math.ceil(dist / 8);
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
-      const sx = x0 + dx * t;
-      const sy = y0 + dy * t;
-      if (checkCollision(sx, sy)) return true;
+      if (isPointSolid(sx0 + dx * t, sy0 + dy * t)) return true;
     }
     return false;
   }
@@ -1917,6 +1916,15 @@
       kitten.active = (!flags.kittenRescued && !flags.mochiFound);
     }
   }
+
+  function isPointSolid(px, py) {
+    const curMap = getActiveMap();
+    const tx = Math.floor(px / TILE_SZ);
+    const ty = Math.floor(py / TILE_SZ);
+    if (tx < 0 || tx >= curMap.width || ty < 0 || ty >= curMap.height) return true;
+    return curMap.collisionMap[ty * curMap.width + tx] === 1;
+  }
+  window.isPointSolid = isPointSolid;
 
   function checkCollision(px, py) {
     const curMap = getActiveMap();

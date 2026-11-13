@@ -3931,6 +3931,11 @@
   }
 
   function triggerMaidTwinStarburst() {
+    if (!flags.nyahJoinedParty) {
+      playSfxBlip(450);
+      spawnFloatingText("NEED NYAH IN PARTY!", hero.x - 24, hero.y - 12, vceColor(7, 4, 4));
+      return;
+    }
     if ((hero.tp || 0) < 100) {
       playSfxBlip(600);
       spawnFloatingText(`TP NOT READY! (${Math.floor(hero.tp || 0)}%)`, hero.x - 20, hero.y - 12, vceColor(7, 3, 3));
@@ -4685,7 +4690,7 @@
       p.timer -= dt;
       if (p.timer <= 0) starburstPillars.splice(i, 1);
     }
-    if ((hero.tp || 0) >= 100) {
+    if (flags.nyahJoinedParty && (hero.tp || 0) >= 100) {
       const curBoss = (typeof isBossActive === 'function') ? isBossActive() : null;
       const livingCount = monsters.filter(m => m.alive).length;
       if ((curBoss && curBoss.hp > 0) || livingCount >= 3) {
@@ -4869,10 +4874,12 @@
                 nyahCompanion.x = m.x + (hero.dir === 3 ? 18 : (hero.dir === 2 ? -18 : 0));
                 nyahCompanion.y = m.y + (hero.dir === 0 ? 18 : (hero.dir === 1 ? -18 : 0));
                 m.staggerTimer = 1.4;
-                m.dir = (m.dir + 2) % 4;
+                m.hitTimer = 0.25;
+                m.dir = [1, 0, 3, 2][m.dir] ?? 0;
                 spawnFloatingText("HIT 'EM NOW, MASTER!", nyahCompanion.x - 24, nyahCompanion.y - 14, vceColor(7, 3, 4));
                 playSfxClaw();
               }
+              return;
             }
 
             if (!Number.isFinite(dmg)) dmg = 2;
@@ -4938,7 +4945,7 @@
           }
         }
 
-        if (p.dist >= p.maxDist || checkCollision(p.x, p.y)) {
+        if (p.dist >= p.maxDist || isPointSolid(p.x, p.y)) {
           enemyProjectiles.splice(i, 1);
         }
       }
@@ -4972,7 +4979,7 @@
           }
         });
 
-        if (hit || b.dist >= b.maxDist || checkCollision(b.x, b.y)) {
+        if (hit || b.dist >= b.maxDist || isPointSolid(b.x, b.y)) {
           swordBeams.splice(i, 1);
         }
       }
@@ -5128,14 +5135,16 @@
             if (!checkCollision(m.x, ny)) m.y = ny;
           }
         } else if (m.type === 'skeleton_knight') {
-          const skdx = hero.x - m.x, skdy = hero.y - m.y;
-          const skdist = Math.hypot(skdx, skdy) || 1;
-          if (skdist < 150 && (typeof hasWallBetween !== 'function' || !hasWallBetween(m.x, m.y, hero.x, hero.y))) {
-            const nx = m.x + (skdx / skdist) * m.speed * dt;
-            const ny = m.y + (skdy / skdist) * m.speed * dt;
-            if (!checkCollision(nx, m.y)) m.x = nx;
-            if (!checkCollision(m.x, ny)) m.y = ny;
-            m.dir = Math.abs(skdx) > Math.abs(skdy) ? (skdx > 0 ? 3 : 2) : (skdy > 0 ? 0 : 1);
+          if ((m.staggerTimer || 0) <= 0) {
+            const skdx = hero.x - m.x, skdy = hero.y - m.y;
+            const skdist = Math.hypot(skdx, skdy) || 1;
+            if (skdist < 150 && (typeof hasWallBetween !== 'function' || !hasWallBetween(m.x, m.y, hero.x, hero.y))) {
+              const nx = m.x + (skdx / skdist) * m.speed * dt;
+              const ny = m.y + (skdy / skdist) * m.speed * dt;
+              if (!checkCollision(nx, m.y)) m.x = nx;
+              if (!checkCollision(m.x, ny)) m.y = ny;
+              m.dir = Math.abs(skdx) > Math.abs(skdy) ? (skdx > 0 ? 3 : 2) : (skdy > 0 ? 0 : 1);
+            }
           }
         } else if (m.type === 'boss_lich') {
           const heroInSanctum = hero.x >= 18 * 16 && hero.y < 16 * 16;
