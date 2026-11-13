@@ -11691,7 +11691,8 @@ function drawManorEventCG(ctx, cgId, x = 80, y = 14) {
   };
 
   function toggleStatusMenu() {
-    if (dialogueState.active || transitionState.active) return;
+    if (dialogueState.active || transitionState.active || dialogueLogState.open) return;
+    if (titleScreenState.active || introCinemaState.active || (typeof epilogueCinemaState !== 'undefined' && epilogueCinemaState.active)) return;
     statusMenuState.open = !statusMenuState.open;
     if (statusMenuState.open) {
       statusMenuState.selectedIndex = 0;
@@ -13293,33 +13294,50 @@ function drawManorEventCG(ctx, cgId, x = 80, y = 14) {
     return false;
   }
 
+  function clearHeldInputs() {
+    for (const key in keysDown) keysDown[key] = false;
+    for (const key in justPressed) justPressed[key] = false;
+    if (typeof hero !== 'undefined') {
+      hero.chargeTimer = 0;
+      hero.chargeReady = false;
+    }
+  }
+
+  window.addEventListener('blur', clearHeldInputs);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearHeldInputs();
+  });
+
   window.addEventListener('keydown', e => {
     const k = e.code;
     if ((k === 'KeyI' || e.key === 'i' || e.key === 'I' || k === 'Tab') && !introCinemaState.active && !titleScreenState.active && (!epilogueCinemaState || !epilogueCinemaState.active)) {
       e.preventDefault();
+      if (dialogueLogState.open) return;
       if (!statusMenuState.open) {
-        toggleStatusMenu();
+        if (!e.repeat) toggleStatusMenu();
         return;
       }
       // Menu is already open: let the menu input handler consume I/Tab instead
       // of toggling the menu (Tab used to close it instead of changing tabs).
-      if (!keysDown[k]) justPressed[k] = true;
+      if (!keysDown[k] && !e.repeat) justPressed[k] = true;
       keysDown[k] = true;
       return;
     }
 
-    if (!keysDown[k]) justPressed[k] = true;
+    if (!keysDown[k] && !e.repeat) justPressed[k] = true;
     keysDown[k] = true;
 
-    if (k === 'KeyT') {
-      // T only returns to title from the SAVE tab now. Time is the Elder's
-      // business: a free day/night switch made the twilight gate meaningless.
-      if (statusMenuState.open && statusMenuState.activeTab === 2) {
-        returnToTitleScreen();
+    if (!e.repeat) {
+      if (k === 'KeyT') {
+        // T only returns to title from the SAVE tab now. Time is the Elder's
+        // business: a free day/night switch made the twilight gate meaningless.
+        if (statusMenuState.open && statusMenuState.activeTab === 2) {
+          returnToTitleScreen();
+        }
       }
+      if (k === 'KeyV') toggleCrt();
+      if (k === 'KeyM') toggleMute();
     }
-    if (k === 'KeyV') toggleCrt();
-    if (k === 'KeyM') toggleMute();
   });
 
   window.addEventListener('keyup', e => {
