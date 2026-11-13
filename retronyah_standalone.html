@@ -7101,11 +7101,18 @@ function drawManorEventCG(ctx, cgId, x = 80, y = 14) {
       window.fifiCompanion.isMoving = false;
       window.fifiCompanion.animFrame = 0;
       window.fifiCompanion.castTimer = 0;
+      window.fifiCompanion.attackCooldown = 0;
+      window.fifiCompanion.healCooldown = 0;
     }
     nyahCompanion.x = hero.x + 16;
     nyahCompanion.y = hero.y + 8;
     nyahCompanion.dir = hero.dir;
     nyahCompanion.isMoving = false;
+    nyahCompanion.isAttacking = false;
+    nyahCompanion.attackTimer = 0;
+    nyahCompanion.attackCooldown = 0;
+    nyahCompanion.healCooldown = 0;
+    nyahCompanion.pounceCooldown = 0;
     nyahCompanion.trailBuffer = [{ x: hero.x, y: hero.y, dir: hero.dir }];
 
     transitionState.active = false;
@@ -7117,9 +7124,20 @@ function drawManorEventCG(ctx, cgId, x = 80, y = 14) {
     dialogueState.cooldownTimer = 0;
     dialogueCloseCooldown = 0.20;
     hero.isAttacking = false;
+    hero.isSpinning = false;
     hero.attackTimer = 0;
     hero.attackCooldown = 0;
+    hero.chargeTimer = 0;
+    hero.chargeReady = false;
     hero.invulnTimer = 0;
+    hero.slowTimer = 0;
+    enemyProjectiles.length = 0;
+    swordBeams.length = 0;
+    floatingTexts.length = 0;
+    if (typeof particles !== 'undefined') particles.length = 0;
+    if (typeof fifiBolts !== 'undefined') fifiBolts.length = 0;
+    if (typeof starburstPillars !== 'undefined') starburstPillars.length = 0;
+    if (typeof starburstCutinTimer !== 'undefined') starburstCutinTimer = 0;
     // Dash stamina is transient by design: never serialized, fully refilled by
     // the same funnel that rebuilds the trail, monsters and companions.
     hero.stamina = hero.staminaMax || 100;
@@ -8147,6 +8165,10 @@ function drawManorEventCG(ctx, cgId, x = 80, y = 14) {
           playSfxHit();
           spawnFloatingText(`-${dmg} CART!`, hero.x, hero.y - 14, vceColor(7, 3, 2));
           updateHudBars();
+          if (hero.hp <= 0) {
+            triggerHeroDefeat();
+            if (transitionState.active) minesCart.run = null;
+          }
         }
         if (!dungeonState.minesBarricadeBroken && prevY < 5 * 16 + 8 && minesCart.y >= 5 * 16 + 8) {
           breakMinesBarricade();
