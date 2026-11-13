@@ -3,7 +3,7 @@
 > Living document. Update the **Fix Log** and **Do Not Regress** sections whenever you
 > change gameplay code, then rebuild the standalone HTML (see *Build & Test*).
 >
-> Last updated: **2026-11-13** · Game version: **v0.10.0**
+> Last updated: **2026-11-13** · Game version: **v0.11.0**
 
 A tiny Falcom-flavoured, PC-Engine-CD-styled action RPG that runs in one browser tab:
 256×224 canvas, hand-painted VCE palette, four dungeons, a three-person party, and a
@@ -385,10 +385,11 @@ JSON.parse(JSON.stringify(window.flags));
 
 ## 11. Fix log
 
-### 2026-11-13 — v0.10.0 `hydrogen-overhaul` stability, combat & perf pass
+### 2026-11-13 — v0.11.0 `hydrogen-overhaul` stability, combat & perf pass
 
 | Area | Change | Files |
 | --- | --- | --- |
+| Version | Header badge, page title, canvas title stamp, bundler log, README and Technical Guide bumped to v0.11.0. | `index.html`, `06`, `bundle_standalone.js`, `README.md`, `TECHNICAL_GUIDE.md` |
 | Input & overlay locks | Ignored `e.repeat` on `I`/`Tab`/`T`/`V`/`M`; added `clearHeldInputs()` on window `blur` and `visibilitychange`; blocked `toggleStatusMenu()` while `dialogueLogState.open` or Title/Intro/Epilogue cinema is active. | `06` |
 | Minecart & save load cleanup | Lethal `minesCart` collisions call `triggerHeroDefeat()` (clearing `minesCart.run` cleanly instead of leaving `hero.hp <= 0` soft-locked). `refreshWorldAfterLoad()` resets companion combat/`pounceCooldown`, hero spin/charge/slow state, and lingering projectiles/particles. | `05` |
 | Items, Bag & DEF HUD | Added `starlight_ribbon` (`+5 DEF`, `+10 MAX HP`) to `KEY_ITEMS` and stat helpers (`getMaxHpForLevel`, `getTotalHeroDef`); simplified `updateItemBadge()` via `KEY_ITEMS`; exposed `+extraDef` breakdown in Status Menu; enabled `[SPACE]` Bag equip for Nyah accessories. | `05`, `06` |

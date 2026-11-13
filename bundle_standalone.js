@@ -19,7 +19,7 @@ const SCRIPTS = [
   'js/06_engine_and_ui.js'
 ];
 
-console.log('Building Retronyah Standalone v0.10.0...');
+console.log('Building Retronyah Standalone v0.11.0...');
 
 let html = fs.readFileSync(INDEX_HTML, 'utf8');
 

@@ -1,4 +1,4 @@
-# Project Nyah: The Bell of Aldenor (v0.10.0)
+# Project Nyah: The Bell of Aldenor (v0.11.0)
 
 A Falcom-inspired, PC-Engine CD-styled action RPG running directly in the browser on a 256x224 canvas with custom pixel art, WebGL/2D dynamic lighting, CRT scanlines, and Web Audio PSG synth music/SFX.
 

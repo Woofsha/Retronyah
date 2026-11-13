@@ -2179,7 +2179,7 @@
     }
 
     // Version Stamp in Top-Right Corner
-    drawPixelText(ctx, "v0.10.0", 208, 6, vceColor(7, 6, 2), OUTLINE_COLOR);
+    drawPixelText(ctx, "v0.11.0", 208, 6, vceColor(7, 6, 2), OUTLINE_COLOR);
 
     // Title Header & Double Gold Banners
     drawPixelText(ctx, "PROJECT NYAH", 86, 18, vceColor(7, 2, 2), OUTLINE_COLOR);
