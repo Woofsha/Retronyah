@@ -296,6 +296,24 @@
     }
   }
 
+  const glPaddedLights = new Float32Array(64);
+  const glPaddedColors = new Float32Array(48);
+  let lightCanvasDirty = false;
+
+  function clearWebGLLighting() {
+    if (!lightCanvasDirty) return;
+    lightCanvasDirty = false;
+    if (glLightContext) {
+      glLightContext.viewport(0, 0, 256, 224);
+      glLightContext.clearColor(0, 0, 0, 0);
+      glLightContext.clear(glLightContext.COLOR_BUFFER_BIT);
+    } else {
+      const canvas = document.getElementById('glLightCanvas');
+      const ctx2d = canvas ? canvas.getContext('2d') : null;
+      if (ctx2d) ctx2d.clearRect(0, 0, 256, 224);
+    }
+  }
+
   function renderWebGLLighting() {
     const canvas = document.getElementById('glLightCanvas');
     if (!canvas) return;
@@ -370,19 +388,20 @@
       gl.uniform1i(glLocs.count, count);
       gl.uniform3f(glLocs.ambient, ambR, ambG, ambB);
 
-      const paddedLights = new Float32Array(64);
-      for (let i = 0; i < lights.length; i++) paddedLights[i] = lights[i];
-      const paddedColors = new Float32Array(48);
-      for (let i = 0; i < colors.length; i++) paddedColors[i] = colors[i];
+      glPaddedLights.fill(0);
+      for (let i = 0; i < lights.length; i++) glPaddedLights[i] = lights[i];
+      glPaddedColors.fill(0);
+      for (let i = 0; i < colors.length; i++) glPaddedColors[i] = colors[i];
 
-      gl.uniform4fv(glLocs.lights, paddedLights);
-      gl.uniform3fv(glLocs.colors, paddedColors);
+      gl.uniform4fv(glLocs.lights, glPaddedLights);
+      gl.uniform3fv(glLocs.colors, glPaddedColors);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, glPosBuffer);
       gl.enableVertexAttribArray(glLocs.pos);
       gl.vertexAttribPointer(glLocs.pos, 2, gl.FLOAT, false, 0, 0);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      lightCanvasDirty = true;
     } else {
       let activeCanvas = canvas;
       let ctx2d = activeCanvas.getContext('2d');
@@ -411,6 +430,7 @@
         ctx2d.fill();
       }
       ctx2d.restore();
+      lightCanvasDirty = true;
     }
   }
 
@@ -1819,6 +1839,7 @@
     titleScreenState.active = true;
     titleScreenState.mode = 'main';
     titleScreenState.cursor = 0;
+    clearWebGLLighting();
     playUiConfirm();
   }
 
@@ -5502,28 +5523,45 @@
     updateSpatialFountain(hero.x, hero.y);
   }
 
+  const vuSegCache = new Array(7).fill(null);
+  const vuLastLit = new Array(7).fill(-1);
+
   // HUD VU Meter Display Update
   function updateVuMeterHud() {
     const barsContainer = document.getElementById('vuBars');
     if (!barsContainer) return;
+    const totalSegs = 6;
     for (let ch = 0; ch < 7; ch++) {
       const bar = document.getElementById(`vuBar${ch}`);
       if (!bar) continue;
       const val = Math.min(1, Math.max(0, vuMeters[ch]));
       vuMeters[ch] *= 0.88;
 
-      bar.innerHTML = '';
-      const totalSegs = 6;
-      const litSegs = Math.round(val * totalSegs);
-      for (let s = 0; s < totalSegs; s++) {
-        const seg = document.createElement('div');
-        seg.className = 'vu-segment';
-        if (s < litSegs) {
-          if (s >= 5) seg.className += ' lit-red';
-          else if (s >= 3) seg.className += ' lit-yellow';
-          else seg.className += ' lit-green';
+      let segs = vuSegCache[ch];
+      if (!segs || bar.children.length !== totalSegs || segs[0].parentNode !== bar) {
+        bar.innerHTML = '';
+        segs = [];
+        for (let s = 0; s < totalSegs; s++) {
+          const seg = document.createElement('div');
+          seg.className = 'vu-segment';
+          bar.appendChild(seg);
+          segs.push(seg);
         }
-        bar.appendChild(seg);
+        vuSegCache[ch] = segs;
+        vuLastLit[ch] = -1;
+      }
+
+      const litSegs = Math.round(val * totalSegs);
+      if (vuLastLit[ch] === litSegs) continue;
+      vuLastLit[ch] = litSegs;
+      for (let s = 0; s < totalSegs; s++) {
+        let cls = 'vu-segment';
+        if (s < litSegs) {
+          if (s >= 5) cls += ' lit-red';
+          else if (s >= 3) cls += ' lit-yellow';
+          else cls += ' lit-green';
+        }
+        segs[s].className = cls;
       }
     }
   }
@@ -5542,12 +5580,15 @@
     lastTime = now;
 
     if (titleScreenState.active) {
+      clearWebGLLighting();
       updateTitleScreen(dt);
       renderTitleScreen(gameCtx);
     } else if (introCinemaState.active) {
+      clearWebGLLighting();
       updateIntroCinema(dt);
       renderIntroCinema(gameCtx);
     } else if (epilogueCinemaState.active) {
+      clearWebGLLighting();
       updateEpilogueCinema(dt);
       renderEpilogueCinema(gameCtx);
     } else {

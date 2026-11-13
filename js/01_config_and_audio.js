@@ -1247,6 +1247,10 @@
     gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
     osc.connect(gain);
     gain.connect(masterGain);
+    osc.onended = () => {
+      try { osc.disconnect(); } catch (e) {}
+      try { gain.disconnect(); } catch (e) {}
+    };
     osc.start(now);
     osc.stop(now + dur + 0.005);
   }
