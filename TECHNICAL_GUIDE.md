@@ -3,7 +3,7 @@
 > Living document. Update the **Fix Log** and **Do Not Regress** sections whenever you
 > change gameplay code, then rebuild the standalone HTML (see *Build & Test*).
 >
-> Last updated: **2026-10-25** · Game version: **v0.10.0**
+> Last updated: **2026-11-13** · Game version: **v0.10.0**
 
 A tiny Falcom-flavoured, PC-Engine-CD-styled action RPG that runs in one browser tab:
 256×224 canvas, hand-painted VCE palette, four dungeons, a three-person party, and a
@@ -46,8 +46,12 @@ Controls: **WASD/arrows** move · **Space** slash/interact · **E/X** talk · **
 | `retronyah_standalone.html` | Generated single-file build for sharing. Never edit by hand. |
 | `aldenor_v5_modular_spec.md` | The design spec that produced this version. Useful intent, not always current truth. |
 | `CODE_REVIEW.md` | Historical verification notes from an earlier pass. Some findings are now fixed. |
-| `backups/` | Timestamped `.tar.gz` snapshots. The pre-v0.6.0 archive is `aldenor_pre_fixes_2026-10-20_053151.tar.gz` (game v0.5.3). Keep at least one before risky edits. |
-| `screens/` | Screenshots used during reviews. |
+| `README.md` | Public repository landing page, GitHub Pages link, controls, local play & test commands. |
+| `.gitignore` | Keeps local `backups/`, `screens/`, `index_v4_backup.html`, and `.freebuff/` untracked. |
+| `tests/smoke_verify.js` | Zero-dependency Node VM regression suite (syntax, standalone sync, map BFS, saves, combat/progression/perf probes). |
+| `tests/browser_verify.js` | Headless Chrome CDP verification suite across `index.html` and `retronyah_standalone.html` (desktop + mobile). |
+| `backups/` | Local timestamped `.tar.gz` archives (git-ignored). The pre-v0.6.0 archive is `aldenor_pre_fixes_2026-10-20_053151.tar.gz` (game v0.5.3). |
+| `screens/` | Local review screenshots (git-ignored). |
 
 ---
 
@@ -187,7 +191,12 @@ final switch *before* opening the shortcut would soft-lock the room.
 ## 7. Input & UI
 
 Keyboard is handled by a single `keydown` listener in `06`; `keysDown` is held state,
-`justPressed` is consumed once per frame via `consumeJustPressed(code)`.
+`justPressed` is consumed once per frame via `consumeJustPressed(code)`. Toggle shortcuts
+(`I`/`Tab`, `T`, `V`, `M`) ignore `e.repeat` so held keys never strobe menus or filters,
+window `blur` and `document.hidden` call `clearHeldInputs()` to zero held keys and
+whirlwind charge state, and `dialogueLogState.open` (as well as title/intro/epilogue
+cinemas) blocks `toggleStatusMenu()`. In Tab 0 (`BAG`), pressing Space/Enter/E also
+equips Nyah accessories (`KEY_ITEMS[id].type === 'accessory'`).
 
 Canonical bindings:
 
@@ -286,15 +295,23 @@ any relevant `getQuestStage`/hint logic, and check it survives a save/load round
 
 ## 10. Build & test
 
+Live deployment (GitHub Pages from `master`): https://woofsha.github.io/Retronyah/
+
 ```bash
 # 1. Syntax check every module (fast, catches stray braces)
 for f in js/*.js; do node --check "$f" || echo "FAIL $f"; done
 
-# 2. Play it
+# 2. Automated smoke & regression suite (18 checks: syntax, sync, map BFS, save round-trip, combat/UI/perf probes)
+node tests/smoke_verify.js
+
+# 3. Automated headless Chrome CDP suite (18 checks across index.html + retronyah_standalone.html)
+node tests/browser_verify.js
+
+# 4. Play it locally
 python -m http.server 8777 --bind 127.0.0.1
 #    → http://127.0.0.1:8777/
 
-# 3. Rebuild the single-file version after any js/index.html change
+# 5. Rebuild the single-file version after any js/index.html change
 node bundle_standalone.js
 ```
 
@@ -367,6 +384,18 @@ JSON.parse(JSON.stringify(window.flags));
 ---
 
 ## 11. Fix log
+
+### 2026-11-13 — v0.10.0 `hydrogen-overhaul` stability, combat & perf pass
+
+| Area | Change | Files |
+| --- | --- | --- |
+| Input & overlay locks | Ignored `e.repeat` on `I`/`Tab`/`T`/`V`/`M`; added `clearHeldInputs()` on window `blur` and `visibilitychange`; blocked `toggleStatusMenu()` while `dialogueLogState.open` or Title/Intro/Epilogue cinema is active. | `06` |
+| Minecart & save load cleanup | Lethal `minesCart` collisions call `triggerHeroDefeat()` (clearing `minesCart.run` cleanly instead of leaving `hero.hp <= 0` soft-locked). `refreshWorldAfterLoad()` resets companion combat/`pounceCooldown`, hero spin/charge/slow state, and lingering projectiles/particles. | `05` |
+| Items, Bag & DEF HUD | Added `starlight_ribbon` (`+5 DEF`, `+10 MAX HP`) to `KEY_ITEMS` and stat helpers (`getMaxHpForLevel`, `getTotalHeroDef`); simplified `updateItemBadge()` via `KEY_ITEMS`; exposed `+extraDef` breakdown in Status Menu; enabled `[SPACE]` Bag equip for Nyah accessories. | `05`, `06` |
+| Combat, LOS & Twin Starburst | Added point-based `isPointSolid()` for `hasWallBetween`, `enemyProjectiles`, and `swordBeams`; made parried `skeleton_knight` swings return early without `+10 TP` or knockback and pause chase while `staggerTimer > 0`; gated `triggerMaidTwinStarburst()` and auto-100TP on `flags.nyahJoinedParty`. | `05`, `06` |
+| World progression & teleports | Added `unlockSpireIfAllRelics()` on boss defeat so winning the 3rd relic immediately opens Sanctum Gate `(24..25, 1)`; moved `handleSeagullInteraction` step 1 onto walkable cobble `(144, 256)`; added `pickOpenTeleportPos()` wall fallbacks for `shadow_guard` and `boss_eclipse` phase 3. | `05`, `06` |
+| Render, DOM & audio cleanup | Cached 7x6 `.vu-segment` nodes in `updateVuMeterHud()` with self-healing rebuild if mutated; hoisted `glPaddedLights`/`glPaddedColors` buffers and added `clearWebGLLighting()` on `returnToTitleScreen()` + non-world `gameLoop()` branches; attached `osc.onended` disconnect in `playVoiceBlip()`. | `01`, `06` |
+| Automated verification | Added `tests/smoke_verify.js` (18 checks) and `tests/browser_verify.js` (18 Chrome CDP checks). All 36 checks verified green after bundling `retronyah_standalone.html`. | `tests/` |
 
 ### 2026-10-25 — v0.10.0 dash stamina & enemy pass
 
@@ -705,6 +734,19 @@ then navigation, then content breadth.
   Crimson Ribbon both shipped as lies once; check the multiplier, not the description.
 - **Do not** auto-unclip Fifi when the player leaves the Manor. Staying behind while
   `fifiLeashedInManor` is set is the designed consequence; the way out is the Manor post.
+- **Do not** switch projectile or line-of-sight wall checks back to `checkCollision()`.
+  Projectiles and LOS rays use `isPointSolid()` so they are not shifted by the hero foot hitbox.
+- **Do not** award TP, knockback, or hit sparks after a parried `skeleton_knight` swing
+  (`dmg === 0`), and keep chase paused while `m.staggerTimer > 0`.
+- **Do not** allow `triggerMaidTwinStarburst()` (manual `[C]` or auto-100TP trigger) to
+  fire before `flags.nyahJoinedParty` is set.
+- **Do not** bypass `toggleStatusMenu()` overlay checks (`dialogueLogState.open`, cinema
+  states) or drop `clearHeldInputs()` on window `blur` / `visibilitychange`.
+- **Do not** teleport `shadow_guard` or `boss_eclipse` onto solid tiles without
+  `pickOpenTeleportPos()`, or grant the 3rd relic without calling `unlockSpireIfAllRelics()`.
+- **Do not** recreate `#vuBar0..6` segments on every frame, re-allocate WebGL light typed
+  arrays in the render loop, leave `#glLightCanvas` uncleared on Title/Cinemas, or spawn
+  `playVoiceBlip` oscillators without `onended` disconnect cleanup.
 
 ---
 
