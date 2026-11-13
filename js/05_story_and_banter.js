@@ -72,6 +72,7 @@
     silver_bell: { id: 'silver_bell', name: "Silver Bell Collar", type: 'accessory', desc: "Chime collar for Nyah (+50% emergency heal)." },
     sea_charm: { id: 'sea_charm', name: "Sea Charm", def: 6, desc: "Lucky sailor charm (+6 DEF, slow immunity)." },
     ring_melody: { id: 'ring_melody', name: "Ring of Melody", desc: "+2 HP regen every 3s while moving." },
+    starlight_ribbon: { id: 'starlight_ribbon', name: "Starlight Ribbon", def: 5, maxHp: 10, desc: "Maid ribbon from the Manor chest (+5 DEF, +10 Max HP)." },
     // Signature boss drops. These are mechanics, not stat sticks: each one
     // changes an existing verb and is applied by the code, never by the text.
     crushers_core: { id: 'crushers_core', name: "Crusher's Core", desc: "Stone heart of the Golem. Dodging near a foe bursts it for 12 damage." },
@@ -239,7 +240,8 @@
   }
 
   function getMaxHpForLevel(l) {
-    return 100 + (l - 1) * 15 + (hero.bonusMaxHp || 0);
+    const ribbonHp = (typeof hasItem === 'function' && hasItem('starlight_ribbon')) ? 10 : 0;
+    return 100 + (l - 1) * 15 + (hero.bonusMaxHp || 0) + ribbonHp;
   }
 
   function getBaseStrForLevel(l) {
@@ -258,8 +260,9 @@
   function getTotalHeroDef() {
     const a = ARMORS[hero.armor];
     const s = (typeof SHIELDS !== 'undefined' && SHIELDS[hero.shield]) ? SHIELDS[hero.shield].def : 0;
-    const accDef = (hero.accessory === 'sea_charm' || (typeof hasItem === 'function' && hasItem('sea_charm'))) ? 6 : 0;
-    return hero.baseDef + (a ? a.def : 4) + s + accDef;
+    const seaDef = (hero.accessory === 'sea_charm' || (typeof hasItem === 'function' && hasItem('sea_charm'))) ? 6 : 0;
+    const ribbonDef = (typeof hasItem === 'function' && hasItem('starlight_ribbon')) ? 5 : 0;
+    return hero.baseDef + (a ? a.def : 4) + s + seaDef + ribbonDef;
   }
 
   // The Flame Edge description promises 1.3x against undead. Keep the list in
@@ -649,6 +652,8 @@
     initMonsters(activeMapId);
     updateNpcSchedules();
     if (typeof syncDayNightHud === 'function') syncDayNightHud();
+    hero.maxHp = getMaxHpForLevel(hero.level);
+    hero.hp = Math.min(hero.maxHp, hero.hp);
     window.collisionMap = curMap.collisionMap;
     updateItemBadge();
     updateHudLevelBadge();
@@ -1985,16 +1990,12 @@
     if (!lbl) return;
     if (!flags.inventory) {
       lbl.textContent = 'NONE';
-    } else if (flags.inventory === 'starlight_tonic') {
-      lbl.textContent = 'Starlight Tonic';
-    } else if (flags.inventory === 'silver_teacup') {
-      lbl.textContent = 'Silver Teacup';
     } else if (flags.inventory === 'guard_sandwich') {
       lbl.textContent = 'Guard Sandwich';
-    } else if (flags.inventory === 'jasmine_tea') {
-      lbl.textContent = 'Jasmine-Catnip Tea';
     } else if (flags.inventory === 'tavern_pass') {
       lbl.textContent = 'Tavern VIP Pass';
+    } else if (typeof KEY_ITEMS !== 'undefined' && KEY_ITEMS[flags.inventory]) {
+      lbl.textContent = KEY_ITEMS[flags.inventory].name;
     } else {
       lbl.textContent = String(flags.inventory);
     }

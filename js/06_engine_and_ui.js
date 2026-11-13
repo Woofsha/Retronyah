@@ -1539,8 +1539,9 @@
     const totalDef = getTotalHeroDef();
     const wpnAtk = WEAPONS[hero.weapon] ? WEAPONS[hero.weapon].atk : 8;
     const armDef = ARMORS[hero.armor] ? ARMORS[hero.armor].def : 4;
+    const extraDef = Math.max(0, totalDef - hero.baseDef - armDef);
     drawPixelText(ctx, `STR ${totalStr} (${hero.baseStr}+${wpnAtk})`, lx + 6, ly + 52, vceColor(7, 7, 3), OUTLINE_COLOR);
-    drawPixelText(ctx, `DEF ${totalDef} (${hero.baseDef}+${armDef})`, lx + 6, ly + 62, vceColor(3, 7, 7), OUTLINE_COLOR);
+    drawPixelText(ctx, extraDef > 0 ? `DEF ${totalDef} (${hero.baseDef}+${armDef}+${extraDef})` : `DEF ${totalDef} (${hero.baseDef}+${armDef})`, lx + 6, ly + 62, vceColor(3, 7, 7), OUTLINE_COLOR);
     drawPixelText(ctx, `GOLD: ${flags.gold || 0} G`, lx + 6, ly + 72, C_GOLD_HI, OUTLINE_COLOR);
 
     // Divider line
@@ -3511,6 +3512,9 @@
           setMapTile(curM, 13, 5, 'woodFloor', 'chestOpen', null, 1);
           flags.gold = (flags.gold || 0) + 150;
           addItem('starlight_ribbon', 1);
+          hero.maxHp = getMaxHpForLevel(hero.level);
+          hero.hp = Math.min(hero.maxHp, hero.hp + 10);
+          updateHudBars();
           playSfxCoin();
           spawnFloatingText("+150 GOLD & STARLIGHT RIBBON!", hero.x, hero.y - 12, vceColor(7, 6, 1));
           startCustomDialogueTree([
@@ -4096,6 +4100,10 @@
               hero.shield = curItem.id;
               playSfxBlip(1400);
               spawnFloatingText("EQUIPPED SHIELD!", hero.x, hero.y - 12, vceColor(7, 6, 1));
+            } else if (KEY_ITEMS[curItem.id] && KEY_ITEMS[curItem.id].type === 'accessory') {
+              nyahCompanion.accessory = curItem.id;
+              playSfxBlip(1400);
+              spawnFloatingText("NYAH EQUIPPED!", hero.x, hero.y - 12, vceColor(7, 4, 7));
             }
           }
           if (consumeJustPressed('Digit1') && CONSUMABLES[curItem.id]) {
