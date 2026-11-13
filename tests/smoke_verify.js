@@ -379,7 +379,7 @@ check('standalone: retronyah_standalone.html synced with js/ + index.html', () =
   const scriptTagsRegex = /<script\s+src="js\/00_v5_assets_bundle\.js"><\/script>[\s\S]*?<script\s+src="js\/06_engine_and_ui\.js"><\/script>/i;
   const expected = html.replace(scriptTagsRegex, () => combinedScripts.trim());
   const actual = fs.readFileSync(path.join(ROOT, 'retronyah_standalone.html'), 'utf8');
-  return (actual === expected) || 'retronyah_standalone.html differs from index.html + js/*';
+  return (actual.replace(/\r\n/g, '\n') === expected.replace(/\r\n/g, '\n')) || 'retronyah_standalone.html differs from index.html + js/*';
 });
 
 const env = loadGameIntoVm();
